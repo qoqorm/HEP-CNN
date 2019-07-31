@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ ! -d /cvmfs ]; then
+	echo "Cannot find CVMFS. Stop."
+	exit 1
+fi
+
 CMSSW_VERSION=CMSSW_10_6_1
 [ -d $CMSSW_VERSION ] || scram project CMSSW $CMSSW_VERSION
 cd $CMSSW_VERSION/src
