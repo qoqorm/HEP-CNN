@@ -52,7 +52,6 @@ historyFile = os.path.join(args.outdir, 'history.csv')
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, LeakyReLU, BatchNormalization, MaxPooling2D, Dropout, Dense, Flatten
 from tensorflow.keras.models import Model
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
 ## Build model
 model = tf.keras.Sequential([
@@ -87,8 +86,20 @@ model.compile(
 )
 model.summary()
 
+import time
+class TimeHistory(tf.keras.callbacks.Callback):
+    def on_train_begin(self, logs):
+        self.times = []
+
+    def on_epoch_begin(self, batch, logs):
+        self.epoch_time_start = time.time()
+
+    def on_epoch_end(self, batch, logs):
+        self.times.append(time.time() - self.epoch_time_start)
+
 if not os.path.exists(weightFile):
     try:
+        timeHistory = TimeHistory()
         history = model.fit(trn_images, trn_labels, sample_weight=trn_weights,
                             validation_data = (val_images, val_labels, val_weights),
                             epochs=args.epoch, batch_size=args.batch,
@@ -96,10 +107,12 @@ if not os.path.exists(weightFile):
                             shuffle='batch',
                             callbacks = [
                                 tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
-                                ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
-                                EarlyStopping(verbose=True, patience=20, monitor='val_loss'),
+                                tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
+                                tf.keras.callbacks.EarlyStopping(verbose=True, patience=20, monitor='val_loss'),
+                                timeHistory,
                             ])
 
+        history.history['time'] = timeHistory.times[:]
         df = pd.DataFrame(history.history)
         df.index.name = "epoch"
         df.to_csv(historyFile)
