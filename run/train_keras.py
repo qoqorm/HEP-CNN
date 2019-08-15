@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import pandas as pd
 import h5py
 import numpy as np
 import argparse
@@ -45,12 +46,12 @@ shape = trn_images.shape
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
 weightFile = os.path.join(args.outdir, 'weight.h5')
 predFile = os.path.join(args.outdir, 'predict.npy')
+historyFile = os.path.join(args.outdir, 'history.csv')
 
 #from keras.utils.io_utils import HD5Matrix
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, LeakyReLU, BatchNormalization, MaxPooling2D, Dropout, Dense, Flatten
 from tensorflow.keras.models import Model
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
 ## Build model
 model = tf.keras.Sequential([
@@ -85,17 +86,37 @@ model.compile(
 )
 model.summary()
 
+import time
+class TimeHistory(tf.keras.callbacks.Callback):
+    def on_train_begin(self, logs):
+        self.times = []
+
+    def on_epoch_begin(self, batch, logs):
+        self.epoch_time_start = time.time()
+
+    def on_epoch_end(self, batch, logs):
+        self.times.append(time.time() - self.epoch_time_start)
+
 if not os.path.exists(weightFile):
     try:
-        model.fit(trn_images, trn_labels, sample_weight=trn_weights,
-                  validation_data = (val_images, val_labels, val_weights),
-                  epochs=args.epoch, batch_size=args.batch,
-                  verbose=1,
-                  shuffle='batch',
-                  callbacks = [
-                      EarlyStopping(verbose=True, patience=20, monitor='val_loss'),
-                      ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
-                  ])
+        timeHistory = TimeHistory()
+        history = model.fit(trn_images, trn_labels, sample_weight=trn_weights,
+                            validation_data = (val_images, val_labels, val_weights),
+                            epochs=args.epoch, batch_size=args.batch,
+                            verbose=1,
+                            shuffle='batch',
+                            callbacks = [
+                                tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
+                                tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
+                                tf.keras.callbacks.EarlyStopping(verbose=True, patience=20, monitor='val_loss'),
+                                timeHistory,
+                            ])
+
+        history.history['time'] = timeHistory.times[:]
+        df = pd.DataFrame(history.history)
+        df.index.name = "epoch"
+        df.to_csv(historyFile)
+
     except KeyboardInterrupt:
         print("Training finished early")
 
