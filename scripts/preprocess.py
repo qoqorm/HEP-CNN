@@ -2,6 +2,7 @@
 import h5py
 import numpy as np
 import argparse
+import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--input', action='store', type=str, help='input file name', required=True)
@@ -22,9 +23,9 @@ data = h5py.File(srcFileName, 'r')
 
 print("Loading data...")
 if args.nevent == -1:
-    labels = data['all_events']['y']
+    labels = data['all_events']['y'][()]
     print("  total event to preprocess=", labels.shape[0])
-    weights = data['all_events']['weight']
+    weights = data['all_events']['weight'][()]
     image_h = data['all_events']['hist'][()]
     image_e = data['all_events']['histEM'][()]
     image_t = data['all_events']['histtrack'][()]
@@ -71,14 +72,41 @@ print("  Output image format=", args.format)
 print("  Output image shape=", image.shape)
 
 print("Writing output file %s..." % outFileName)
-with h5py.File(outFileName, 'w') as outFile:
-    g = outFile.create_group('all_events')
-    g.create_dataset('images'+args.suffix, data=image, 
-                     chunks=True, compression='gzip', compression_opts=9)
-    g.create_dataset('labels'+args.suffix, data=labels, chunks=True)
-    g.create_dataset('weights'+args.suffix, data=weights, chunks=True)
+nEvent = image.shape[0]
+chunkSize = min(1024, nEvent)
+if outFileName.endswith('.h5'):
+    with h5py.File(outFileName, 'w') as outFile:
+        g = outFile.create_group('all_events')
+        g.create_dataset('images'+args.suffix, data=image,
+                         chunks=(chunkSize,*image.shape[1:]), compression='gzip', compression_opts=9)
+        g.create_dataset('labels'+args.suffix, data=labels, chunks=(chunkSize,))
+        g.create_dataset('weights'+args.suffix, data=weights, chunks=(chunkSize,))
+        print("  done")
 
-with h5py.File(outFileName, 'r') as outFile:
-    print("  created", outFileName)
-    print("  keys=", list(outFile.keys()))
-    print("  shape=", outFile['all_events']['images'].shape)
+    with h5py.File(outFileName, 'r') as outFile:
+        print("  created", outFileName)
+        print("  keys=", list(outFile.keys()))
+        print("  shape=", outFile['all_events']['images'].shape)
+elif outFileName.endswith('.tfrecords'):
+    import tensorflow as tf
+    options = tf.python_io.TFRecordOptions(
+        compression_method=tf.python_io.TFRecordCompressionType.GZIP,
+        compression_level=9,
+    )
+    with tf.python_io.TFRecordWriter(outFileName, options=options) as writer:
+        nsplit = int(np.ceil(1.0*nEvent/chunkSize))
+        ximage = np.array_split(image, nsplit)
+        xlabels = np.array_split(labels, nsplit)
+        xweights = np.array_split(weights, nsplit)
+        for i in range(nsplit):
+            print("  Write chunk (%d/%d)" % (i, nsplit), end='\r')
+            sys.stdout.flush()
+            ex = tf.train.Example(features=tf.train.Features(feature={
+                'all_events/images'+args.suffix: tf.train.Feature(bytes_list=tf.train.BytesList(value=[ximage[i].tobytes()])),
+                #'all_events/images'+args.suffix: tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.compat.as_bytes(ximage[i].tostring())])),
+                #'all_events/images'+args.suffix: tf.train.Feature(float_list=tf.train.FloatList(value=ximage[i].astype(np.float32).reshape(-1))),
+                'all_events/labels'+args.suffix: tf.train.Feature(int64_list=tf.train.Int64List(value=xlabels[i].astype(np.int32))),
+                'all_events/weights'+args.suffix: tf.train.Feature(float_list=tf.train.FloatList(value=xweights[i].astype(np.float32))),
+            }))
+            writer.write(ex.SerializeToString())
+        print("\n  done")

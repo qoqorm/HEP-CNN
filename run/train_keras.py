@@ -30,6 +30,16 @@ else:
     val_labels = val_data['all_events']['labels']
     val_weights = val_data['all_events']['weights']
 
+if args.ntrain > 0:
+    trn_images = trn_images[:args.ntrain]
+    trn_labels = trn_labels[:args.ntrain]
+    trn_weights = trn_weights[:args.ntrain]
+
+if args.ntest > 0:
+    val_images = val_images[:args.ntest]
+    val_labels = val_labels[:args.ntest]
+    val_weights = val_weights[:args.ntest]
+
 shape = trn_images.shape
 
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
@@ -75,18 +85,19 @@ model.compile(
 )
 model.summary()
 
-try:
-    model.fit(trn_images, trn_labels, sample_weight=trn_weights,
-              validation_data = (val_images, val_labels, val_weights),
-              shuffle='batch',
-              epochs=args.epoch, batch_size=args.batch,
-              verbose=1,
-              callbacks = [
-                  EarlyStopping(verbose=True, patience=20, monitor='val_loss'),
-                  ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
-              ])
-except KeyboardInterrupt:
-    print("Training finished early")
+if not os.path.exists(weightFile):
+    try:
+        model.fit(trn_images, trn_labels, sample_weight=trn_weights,
+                  validation_data = (val_images, val_labels, val_weights),
+                  epochs=args.epoch, batch_size=args.batch,
+                  verbose=1,
+                  shuffle='batch',
+                  callbacks = [
+                      EarlyStopping(verbose=True, patience=20, monitor='val_loss'),
+                      ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
+                  ])
+    except KeyboardInterrupt:
+        print("Training finished early")
 
 model.load_weights(weightFile)
 pred = model.predict(val_images, verbose=1, batch_size=args.batch)
