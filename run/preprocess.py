@@ -9,7 +9,8 @@ parser.add_argument('-o', action='store', type=str, help='output file name')
 parser.add_argument('-n', action='store', type=int, default=-1, help='number of events to preprocess')
 parser.add_argument('--suffix', action='store', type=str, default='', help='suffix for output ("" for train, "val" for validation set)')
 parser.add_argument('--format', action='store', choices=('NHWC', 'NCHW'), default='NHWC', help='image format for output (NHWC for TF default, HCHW for pytorch default)')
-parser.add_argument('--circPad', action='store', type=int, default=0, help='padding size for the circular padding (0 for no-padding)')
+parser.add_argument('--circpad', action='store', type=int, default=0, help='padding size for the circular padding (0 for no-padding)')
+parser.add_argument('--logscale', action='store', type=bool, default=False, help='apply log scaling to images')
 args = parser.parse_args()
 
 srcFileName = args.i
@@ -39,17 +40,19 @@ print("Normalizing EM, track histograms...")
 image_e /= image_e.max()
 image_t /= image_t.max()
 
-if args.circPad == 0:
-    print("No circular padding.")
-else:
-    print("Apply circular padding, size=", args.circPad)
+if args.logscale:
+    print("Apply log scaling to images...")
+    print("!!!NOT IMPLEMENTED YET!!!!")
+
+if args.circpad > 0:
+    print("Apply circular padding, size=", args.circpad, "...")
     print("  Note for the next step: circular padding size depend on the CNN structure (layers, kernel, maxpool...).")
     print("  Please double check with your model.")
 
     print("    input image shape=", image_h.shape)
-    image_h = np.concatenate([image_h, image_h[:,:,:args.circPad]], axis=-1)
-    image_e = np.concatenate([image_e, image_e[:,:,:args.circPad]], axis=-1)
-    image_t = np.concatenate([image_t, image_t[:,:,:args.circPad]], axis=-1)
+    image_h = np.concatenate([image_h, image_h[:,:,:args.circpad]], axis=-1)
+    image_e = np.concatenate([image_e, image_e[:,:,:args.circpad]], axis=-1)
+    image_t = np.concatenate([image_t, image_t[:,:,:args.circpad]], axis=-1)
     print("    output image shape=", image_h.shape)
 
 print("Joining channels...")
