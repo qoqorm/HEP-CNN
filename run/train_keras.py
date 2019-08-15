@@ -21,9 +21,14 @@ trn_labels = trn_data['all_events']['labels']
 trn_weights = trn_data['all_events']['weights']
 
 val_data = h5py.File(args.valdata, 'r')
-val_images = val_data['all_events']['images']
-val_labels = val_data['all_events']['labels']
-val_weights = val_data['all_events']['weights']
+if 'images_val' in val_data['all_events']:
+    val_images = val_data['all_events']['images_val']
+    val_labels = val_data['all_events']['labels_val']
+    val_weights = val_data['all_events']['weights_val']
+else:
+    val_images = val_data['all_events']['images']
+    val_labels = val_data['all_events']['labels']
+    val_weights = val_data['all_events']['weights']
 
 shape = trn_images.shape
 
