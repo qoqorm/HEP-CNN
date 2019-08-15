@@ -4,9 +4,9 @@ import numpy as np
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-i', action='store', type=str, help='input file name')
-parser.add_argument('-o', action='store', type=str, help='output file name')
-parser.add_argument('-n', action='store', type=int, default=-1, help='number of events to preprocess')
+parser.add_argument('-i', '--input', action='store', type=str, help='input file name', required=True)
+parser.add_argument('-o', '--output', action='store', type=str, help='output file name', required=True)
+parser.add_argument('-n', '--nevent', action='store', type=int, default=-1, help='number of events to preprocess')
 parser.add_argument('--suffix', action='store', type=str, default='', help='suffix for output ("" for train, "val" for validation set)')
 parser.add_argument('--format', action='store', choices=('NHWC', 'NCHW'), default='NHWC', help='image format for output (NHWC for TF default, HCHW for pytorch default)')
 parser.add_argument('--circpad', action='store', type=int, default=0, help='padding size for the circular padding (0 for no-padding)')
