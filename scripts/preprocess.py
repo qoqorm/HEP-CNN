@@ -13,15 +13,15 @@ parser.add_argument('--circpad', action='store', type=int, default=0, help='padd
 parser.add_argument('--logscale', action='store', type=bool, default=False, help='apply log scaling to images')
 args = parser.parse_args()
 
-srcFileName = args.i
-outFileName = args.o
+srcFileName = args.input
+outFileName = args.output
 if args.suffix != '': args.suffix = '_'+args.suffix
 
 print("Opening input dataset %s..." % srcFileName)
 data = h5py.File(srcFileName, 'r')
 
 print("Loading data...")
-if args.n == -1:
+if args.nevent == -1:
     labels = data['all_events']['y']
     print("  total event to preprocess=", labels.shape[0])
     weights = data['all_events']['weight']
@@ -29,12 +29,12 @@ if args.n == -1:
     image_e = data['all_events']['histEM'][()]
     image_t = data['all_events']['histtrack'][()]
 else:
-    labels = data['all_events']['y'][:args.n]
+    labels = data['all_events']['y'][:args.nevent]
     print("  total event to preprocess=", labels.shape[0])
-    weights = data['all_events']['weight'][:args.n]
-    image_h = data['all_events']['hist'][:args.n]
-    image_e = data['all_events']['histEM'][:args.n]
-    image_t = data['all_events']['histtrack'][:args.n]
+    weights = data['all_events']['weight'][:args.nevent]
+    image_h = data['all_events']['hist'][:args.nevent]
+    image_e = data['all_events']['histEM'][:args.nevent]
+    image_t = data['all_events']['histtrack'][:args.nevent]
 
 print("Normalizing EM, track histograms...")
 image_e /= image_e.max()
