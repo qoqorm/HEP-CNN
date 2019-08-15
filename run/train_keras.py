@@ -17,19 +17,19 @@ parser.add_argument('-o', '--outdir', action='store', type=str, required=True, h
 args = parser.parse_args()
 
 trn_data = h5py.File(args.trndata, 'r')
-trn_images = trn_data['all_events']['images']
-trn_labels = trn_data['all_events']['labels']
-trn_weights = trn_data['all_events']['weights']
+trn_images = trn_data['all_events']['images']#[()]
+trn_labels = trn_data['all_events']['labels']#[()]
+trn_weights = trn_data['all_events']['weights']#[()]
 
 val_data = h5py.File(args.valdata, 'r')
 if 'images_val' in val_data['all_events']:
-    val_images = val_data['all_events']['images_val']
-    val_labels = val_data['all_events']['labels_val']
-    val_weights = val_data['all_events']['weights_val']
+    val_images = val_data['all_events']['images_val']#[()]
+    val_labels = val_data['all_events']['labels_val']#[()]
+    val_weights = val_data['all_events']['weights_val']#[()]
 else:
-    val_images = val_data['all_events']['images']
-    val_labels = val_data['all_events']['labels']
-    val_weights = val_data['all_events']['weights']
+    val_images = val_data['all_events']['images']#[()]
+    val_labels = val_data['all_events']['labels']#[()]
+    val_weights = val_data['all_events']['weights']#[()]
 
 if args.ntrain > 0:
     trn_images = trn_images[:args.ntrain]
@@ -48,7 +48,7 @@ weightFile = os.path.join(args.outdir, 'weight.h5')
 predFile = os.path.join(args.outdir, 'predict.npy')
 historyFile = os.path.join(args.outdir, 'history.csv')
 
-#from keras.utils.io_utils import HD5Matrix
+#from keras.utils.io_utils import HD5Matrix ## available from TF2.X
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, LeakyReLU, BatchNormalization, MaxPooling2D, Dropout, Dense, Flatten
 from tensorflow.keras.models import Model
@@ -104,7 +104,8 @@ if not os.path.exists(weightFile):
                             validation_data = (val_images, val_labels, val_weights),
                             epochs=args.epoch, batch_size=args.batch,
                             verbose=1,
-                            shuffle='batch',
+                            #shuffle='batch',
+                            shuffle=False,
                             callbacks = [
                                 tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
                                 tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
