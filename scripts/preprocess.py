@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import h5py
 import numpy as np
 import argparse
@@ -78,7 +78,7 @@ if outFileName.endswith('.h5'):
     with h5py.File(outFileName, 'w') as outFile:
         g = outFile.create_group('all_events')
         g.create_dataset('images'+args.suffix, data=image,
-                         chunks=(chunkSize,*image.shape[1:]), compression='gzip', compression_opts=9)
+                         chunks=((chunkSize,)+image.shape[1:]), compression='gzip', compression_opts=9)
         g.create_dataset('labels'+args.suffix, data=labels, chunks=(chunkSize,))
         g.create_dataset('weights'+args.suffix, data=weights, chunks=(chunkSize,))
         print("  done")
