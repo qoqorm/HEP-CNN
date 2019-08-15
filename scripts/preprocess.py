@@ -102,9 +102,9 @@ elif outFileName.endswith('.tfrecords'):
             print("  Write chunk (%d/%d)" % (i, nsplit), end='\r')
             sys.stdout.flush()
             ex = tf.train.Example(features=tf.train.Features(feature={
-                #'all_events/images'+args.suffix: tf.train.Feature(bytes_list=tf.train.BytesList(value=[ximage[i].tobytes()])),
+                'all_events/images'+args.suffix: tf.train.Feature(bytes_list=tf.train.BytesList(value=[ximage[i].tobytes()])),
                 #'all_events/images'+args.suffix: tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.compat.as_bytes(ximage[i].tostring())])),
-                'all_events/images'+args.suffix: tf.train.Feature(float_list=tf.train.FloatList(value=ximage[i].astype(np.float32).reshape(-1))),
+                #'all_events/images'+args.suffix: tf.train.Feature(float_list=tf.train.FloatList(value=ximage[i].astype(np.float32).reshape(-1))),
                 'all_events/labels'+args.suffix: tf.train.Feature(int64_list=tf.train.Int64List(value=xlabels[i].astype(np.int32))),
                 'all_events/weights'+args.suffix: tf.train.Feature(float_list=tf.train.FloatList(value=xweights[i].astype(np.float32))),
             }))
