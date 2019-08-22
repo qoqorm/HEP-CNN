@@ -79,6 +79,8 @@ model = tf.keras.Sequential([
     Dense(1, activation='sigmoid')
 ])
 
+optm = tf.keras.optimizers.Adam(0.001)
+
 model.compile(
       optimizer='adam',
       loss='binary_crossentropy',
