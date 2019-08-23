@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-import pandas as pd
 import h5py
 import numpy as np
 import argparse
 import sys, os
+import csv
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', action='store', type=int, default=50, help='Number of epochs')
@@ -47,6 +47,7 @@ if not os.path.exists(args.outdir): os.makedirs(args.outdir)
 weightFile = os.path.join(args.outdir, 'weight.h5')
 predFile = os.path.join(args.outdir, 'predict.npy')
 historyFile = os.path.join(args.outdir, 'history.csv')
+batchHistoryFile = os.path.join(args.outdir, 'batchHistory.csv')
 
 #from keras.utils.io_utils import HD5Matrix ## available from TF2.X
 import tensorflow as tf
@@ -69,12 +70,21 @@ import time
 class TimeHistory(tf.keras.callbacks.Callback):
     def on_train_begin(self, logs):
         self.times = []
-
     def on_epoch_begin(self, batch, logs):
         self.epoch_time_start = time.time()
-
     def on_epoch_end(self, batch, logs):
         self.times.append(time.time() - self.epoch_time_start)
+
+sys.path.append("../scripts")
+from monitor_proc import SysStat
+class SysStatHistory(tf.keras.callbacks.Callback, SysStat):
+    def __init__(self, pid):
+        SysStat.__init__(self, pid, fileName=batchHistoryFile)
+    def on_epoch_end(self, batch, logs):
+        self.update(annotation='epoch')
+    def on_batch_end(self, batch, logs):
+        self.update()
+sysstat = SysStatHistory(os.getpid())
 
 if not os.path.exists(weightFile):
     try:
@@ -89,13 +99,15 @@ if not os.path.exists(weightFile):
                                 tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
                                 tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
                                 tf.keras.callbacks.EarlyStopping(verbose=True, patience=20, monitor='val_loss'),
-                                timeHistory,
+                                timeHistory, sysstat,
                             ])
 
         history.history['time'] = timeHistory.times[:]
-        df = pd.DataFrame(history.history)
-        df.index.name = "epoch"
-        df.to_csv(historyFile)
+        with open(historyFile, 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(history.history.keys())
+            for row in zip([history.history[key] for key in history.history.keys()]):
+                writer.writerow(row)
 
     except KeyboardInterrupt:
         print("Training finished early")
