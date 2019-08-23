@@ -2,56 +2,84 @@
 import sys, os, time
 import subprocess
 import csv
+import argparse
 
-wait_second = 10
-procId = int(sys.argv[1])
+class SysStat:
+    def __init__(self, procId, fileName=None, verbose=False):
+        self.fileName = fileName
+        self.verbose = verbose
+        self.procdir = '/proc/%d' % procId
 
-pagesize = int(subprocess.check_output(['getconf', 'PAGESIZE']))
-nproc = int(subprocess.check_output(['nproc', '--all']))
+        #self.pagesize = int(subprocess.check_output(['getconf', 'PAGESIZE']))
+        self.nproc = int(subprocess.check_output(['nproc', '--all']))
 
-procdir = '/proc/%d' % procId
-columns = ["cpu", "mem", "io_read", "io_write"]
-with open('proc_%d.csv' % procId, 'w') as fout:
-  writer = csv.writer(fout)
-  writer.writerow(columns)
+        self.utime, self.stime, self.rss = 0, 0, 0
+        self.io_read, self.io_write = 0, 0
+        self.totaltime = 0
 
-  utime0, stime0, rss = 0, 0, 0
-  io_read0, io_write0 = 0, 0
-  totaltime0 = 0
-  while True:
-      if not os.path.exists(procdir): break
-      utime1, stime1, rss1 = 0, 0, 0
-      io_read1, io_write1 = 0, 0
-      totaltime1 = 0
+        self.cpuFracs = []
+        self.readBytes = []
+        self.writeBytes = []
+        self.rsss = []
 
-      stat = [0]*len(columns)
-      with open(procdir+'/stat') as f:
-          ## Note: see the linux man page proc(5)
-          statcpu = f.read().split()
-          utime1 = int(statcpu[13]) ## utime in jiffies unit
-          stime1 = int(statcpu[14]) ## utime in jiffies unit
-          rss1 = int(statcpu[23]) ## rss
+        if fileName != None:
+            self.writer = csv.writer(open(self.fileName, 'w'))
+            columns = ["CPU", "RSS", "Read_Bytes", "Write_Bytes", "Annotation"]
+            self.writer.writerow(columns)
 
-      with open(procdir+'/io') as f:
-          ## Note: /proc/PROC/io gives [rchar, wchar, syscr, syscw, read_bytes, write_bytes, cancelled_write_bytes]
-          statio = f.readlines()
-          io_read1 = int(statio[4].rsplit(':', 1)[-1])
-          io_write1 = int(statio[5].rsplit(':', 1)[-1])
-      with open('/proc/stat') as f:
-          stattotal = f.readlines()[0].split()
-          totaltime1 = sum(int(x) for x in stattotal[1:]) ## cpu time in jiffies unit
+        self.update()
 
-      if totaltime0 != 0:
-          cpu_usage = 100*nproc*float( (utime1-utime0) + (stime1-stime0) ) / (totaltime1-totaltime0)
-          io_read = io_read1-io_read0
-          io_write = io_write1-io_write0
+    def update(self, annotation=None):
+        if not os.path.exists(self.procdir): return False
+        if annotation == None: "''"
 
-          print(cpu_usage, rss1, io_read, io_write)
-          writer.writerow(stat)
+        with open(self.procdir+'/stat') as f:
+            ## Note: see the linux man page proc(5)
+            statcpu = f.read().split()
+            utime = int(statcpu[13]) ## utime in jiffies unit
+            stime = int(statcpu[14]) ## utime in jiffies unit
+            rss   = int(statcpu[23]) ## rss
 
-      utime0, stime0 = utime1, stime1
-      io_read0, io_write0 = io_read1, io_write1
-      totaltime0 = totaltime1
+        with open(self.procdir+'/io') as f:
+            ## Note: /proc/PROC/io gives [rchar, wchar, syscr, syscw, read_bytes, write_bytes, cancelled_write_bytes]
+            statio = f.readlines()
+            io_read  = int(statio[4].rsplit(':', 1)[-1])
+            io_write = int(statio[5].rsplit(':', 1)[-1])
 
-      time.sleep(wait_second)
+        with open('/proc/stat') as f:
+            stattotal = f.readlines()[0].split()
+            totaltime = sum(int(x) for x in stattotal[1:]) ## cpu time in jiffies unit
+
+        if self.totaltime != 0:
+            cpuFrac   = 100*self.nproc*float( (utime-self.utime) + (stime-self.stime) ) / (totaltime-self.totaltime)
+            readByte  = io_read-self.io_read
+            writeByte = io_write-self.io_write
+
+            self.cpuFracs.append(cpuFrac)
+            self.readBytes.append(readByte)
+            self.writeBytes.append(writeByte)
+            self.rsss.append(rss)
+
+            stat = [cpuFrac, rss, readByte, writeByte, annotation]
+            if self.verbose: print(stat)
+            if hasattr(self, 'writer'): self.writer.writerow(stat)
+
+        self.utime, self.stime, self.rss = utime, stime, rss
+        self.io_read, self.io_write = io_read, io_write
+        self.totaltime = totaltime
+
+        return True
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-t', '--interval', action='store', type=float, default=10, help='Time interval')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
+    parser.add_argument('-o', '--output', action='store', type=str, default=None, help='Output file name')
+    parser.add_argument('PID', action='store', type=int, help='Process ID to be monitored')
+    args = parser.parse_args()
+
+    procId = int(args.PID)
+
+    sysstat = SysStat(procId, fileName=args.output, verbose=args.verbose)
+    while sysstat.update(): time.sleep(args.interval)
 
