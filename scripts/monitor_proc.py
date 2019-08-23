@@ -2,9 +2,11 @@
 import sys, os, time
 import subprocess
 import csv
+import argparse
 
 class SysStat:
-    def __init__(self, procId, verbose=False):
+    def __init__(self, procId, fileName=None, verbose=False):
+        self.fileName = fileName
         self.verbose = verbose
         self.procdir = '/proc/%d' % procId
 
@@ -18,10 +20,12 @@ class SysStat:
         self.cpuFracs = []
         self.readBytes = []
         self.writeBytes = []
+        self.rsss = []
 
-        self.writer = csv.writer(open('proc_%d.csv' % procId, 'w'))
-        columns = ["CPU", "RSS", "Read_Bytes", "Write_Bytes", "Annotation"]
-        self.writer.writerow(columns)
+        if fileName != None:
+            self.writer = csv.writer(open(self.fileName, 'w'))
+            columns = ["CPU", "RSS", "Read_Bytes", "Write_Bytes", "Annotation"]
+            self.writer.writerow(columns)
 
         self.update()
 
@@ -54,10 +58,11 @@ class SysStat:
             self.cpuFracs.append(cpuFrac)
             self.readBytes.append(readByte)
             self.writeBytes.append(writeByte)
+            self.rsss.append(rss)
 
             stat = [cpuFrac, rss, readByte, writeByte, annotation]
             if self.verbose: print(stat)
-            self.writer.writerow(stat)
+            if hasattr(self, 'writer'): self.writer.writerow(stat)
 
         self.utime, self.stime, self.rss = utime, stime, rss
         self.io_read, self.io_write = io_read, io_write
@@ -66,9 +71,15 @@ class SysStat:
         return True
 
 if __name__ == '__main__':
-    wait_second = 10
-    procId = int(sys.argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-t', '--interval', action='store', type=float, default=10, help='Time interval')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
+    parser.add_argument('-o', '--output', action='store', type=str, default=None, help='Output file name')
+    parser.add_argument('PID', action='store', type=int, help='Process ID to be monitored')
+    args = parser.parse_args()
 
-    sysstat = SysStat(procId, verbose=True)
-    while sysstat.update(): time.sleep(wait_second)
+    procId = int(args.PID)
+
+    sysstat = SysStat(procId, fileName=args.output, verbose=args.verbose)
+    while sysstat.update(): time.sleep(args.interval)
 
