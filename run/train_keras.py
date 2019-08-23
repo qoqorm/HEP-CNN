@@ -13,6 +13,7 @@ parser.add_argument('--batch', action='store', type=int, default=256, help='Batc
 parser.add_argument('-t', '--trndata', action='store', type=str, required=True, help='input file for training')
 parser.add_argument('-v', '--valdata', action='store', type=str, required=True, help='input file for validation')
 parser.add_argument('-o', '--outdir', action='store', type=str, required=True, help='Path to output directory')
+parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Learning rate')
 
 args = parser.parse_args()
 
@@ -52,15 +53,21 @@ batchHistoryFile = os.path.join(args.outdir, 'batchHistory.csv')
 #from keras.utils.io_utils import HD5Matrix ## available from TF2.X
 import tensorflow as tf
 
+config = tf.ConfigProto()
+nthreads = int(os.popen('nproc').read())
+config.intra_op_parallelism_threads = nthreads
+config.inter_op_parallelism_threads = nthreads
+tf.Session(config=config)
+
 ## Build model
 sys.path.append("../models")
 from HEPCNN.keras_default import MyModel
 model = MyModel(shape[1:])
 
-optm = tf.keras.optimizers.Adam(0.001)
+optm = tf.keras.optimizers.Adam(args.lr)
 
 model.compile(
-      optimizer='adam',
+      optimizer=optm,
       loss='binary_crossentropy',
       metrics=['accuracy']
 )
