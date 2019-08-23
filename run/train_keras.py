@@ -53,7 +53,7 @@ import tensorflow as tf
 
 ## Build model
 sys.path.append("../models")
-from keras.default import MyModel
+from HEPCNN.keras_default import MyModel
 model = MyModel(shape[1:])
 
 optm = tf.keras.optimizers.Adam(0.001)
