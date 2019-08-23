@@ -100,8 +100,8 @@ if not os.path.exists(weightFile):
                             validation_data = (val_images, val_labels, val_weights),
                             epochs=args.epoch, batch_size=args.batch,
                             verbose=1,
-                            #shuffle='batch',
-                            shuffle=False,
+                            shuffle='batch',
+                            #shuffle=False,
                             callbacks = [
                                 tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
                                 tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
@@ -112,8 +112,9 @@ if not os.path.exists(weightFile):
         history.history['time'] = timeHistory.times[:]
         with open(historyFile, 'w') as f:
             writer = csv.writer(f)
-            writer.writerow(history.history.keys())
-            for row in zip([history.history[key] for key in history.history.keys()]):
+            keys = history.history.keys()
+            writer.writerow(keys)
+            for row in zip(*[history.history[key] for key in keys]):
                 writer.writerow(row)
 
     except KeyboardInterrupt:
