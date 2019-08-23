@@ -10,21 +10,21 @@ class SysStat:
         self.verbose = verbose
         self.procdir = '/proc/%d' % procId
 
-        #self.pagesize = int(subprocess.check_output(['getconf', 'PAGESIZE']))
+        self.pagesize = int(subprocess.check_output(['getconf', 'PAGESIZE']))
         self.nproc = int(subprocess.check_output(['nproc', '--all']))
 
-        self.utime, self.stime, self.rss = 0, 0, 0
+        self.utime, self.stime, self.rss, self.vmsize = 0, 0, 0, 0
         self.io_read, self.io_write = 0, 0
         self.totaltime = 0
 
-        self.cpuFracs = []
-        self.readBytes = []
-        self.writeBytes = []
-        self.rsss = []
+        #self.cpuFracs = []
+        #self.readBytes = []
+        #self.writeBytes = []
+        #self.rsss = []
 
         if fileName != None:
             self.writer = csv.writer(open(self.fileName, 'w'))
-            columns = ["CPU", "RSS", "Read_Bytes", "Write_Bytes", "Annotation"]
+            columns = ["CPU", "RSS", 'VMSize', "Read", "Write", "Annotation"]
             self.writer.writerow(columns)
 
         self.update()
@@ -38,7 +38,8 @@ class SysStat:
             statcpu = f.read().split()
             utime = int(statcpu[13]) ## utime in jiffies unit
             stime = int(statcpu[14]) ## utime in jiffies unit
-            rss   = int(statcpu[23]) ## rss
+            vmsize = int(statcpu[22]) ## vm size in bytes
+            rss   = int(statcpu[23])*self.pagesize ## rss in page size -> convert to bytes
 
         with open(self.procdir+'/io') as f:
             ## Note: /proc/PROC/io gives [rchar, wchar, syscr, syscw, read_bytes, write_bytes, cancelled_write_bytes]
@@ -55,16 +56,16 @@ class SysStat:
             readByte  = io_read-self.io_read
             writeByte = io_write-self.io_write
 
-            self.cpuFracs.append(cpuFrac)
-            self.readBytes.append(readByte)
-            self.writeBytes.append(writeByte)
-            self.rsss.append(rss)
+            #self.cpuFracs.append(cpuFrac)
+            #self.readBytes.append(readByte)
+            #self.writeBytes.append(writeByte)
+            #self.rsss.append(rss)
 
-            stat = [cpuFrac, rss, readByte, writeByte, annotation]
+            stat = [cpuFrac, rss, vmsize, readByte, writeByte, annotation]
             if self.verbose: print(stat)
             if hasattr(self, 'writer'): self.writer.writerow(stat)
 
-        self.utime, self.stime, self.rss = utime, stime, rss
+        self.utime, self.stime, self.rss, self.vmsize = utime, stime, rss, vmsize
         self.io_read, self.io_write = io_read, io_write
         self.totaltime = totaltime
 

@@ -13,6 +13,7 @@ parser.add_argument('--batch', action='store', type=int, default=256, help='Batc
 parser.add_argument('-t', '--trndata', action='store', type=str, required=True, help='input file for training')
 parser.add_argument('-v', '--valdata', action='store', type=str, required=True, help='input file for validation')
 parser.add_argument('-o', '--outdir', action='store', type=str, required=True, help='Path to output directory')
+parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Learning rate')
 
 args = parser.parse_args()
 
@@ -52,15 +53,21 @@ batchHistoryFile = os.path.join(args.outdir, 'batchHistory.csv')
 #from keras.utils.io_utils import HD5Matrix ## available from TF2.X
 import tensorflow as tf
 
+config = tf.ConfigProto()
+nthreads = int(os.popen('nproc').read())
+config.intra_op_parallelism_threads = nthreads
+config.inter_op_parallelism_threads = nthreads
+tf.Session(config=config)
+
 ## Build model
 sys.path.append("../models")
-from keras.default import MyModel
+from HEPCNN.keras_default import MyModel
 model = MyModel(shape[1:])
 
-optm = tf.keras.optimizers.Adam(0.001)
+optm = tf.keras.optimizers.Adam(args.lr)
 
 model.compile(
-      optimizer='adam',
+      optimizer=optm,
       loss='binary_crossentropy',
       metrics=['accuracy']
 )
@@ -93,8 +100,8 @@ if not os.path.exists(weightFile):
                             validation_data = (val_images, val_labels, val_weights),
                             epochs=args.epoch, batch_size=args.batch,
                             verbose=1,
-                            #shuffle='batch',
-                            shuffle=False,
+                            shuffle='batch',
+                            #shuffle=False,
                             callbacks = [
                                 tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
                                 tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
@@ -105,8 +112,9 @@ if not os.path.exists(weightFile):
         history.history['time'] = timeHistory.times[:]
         with open(historyFile, 'w') as f:
             writer = csv.writer(f)
-            writer.writerow(history.history.keys())
-            for row in zip([history.history[key] for key in history.history.keys()]):
+            keys = history.history.keys()
+            writer.writerow(keys)
+            for row in zip(*[history.history[key] for key in keys]):
                 writer.writerow(row)
 
     except KeyboardInterrupt:
