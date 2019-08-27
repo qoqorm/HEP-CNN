@@ -22,6 +22,7 @@ for d in sys.argv[1:]:
 
     usage['time'] = (usage['Datetime']-beginTime).dt.total_seconds()
 
-    plt.plot(usage['time'], usage[metric])
+    plt.plot(usage['time'], usage[metric], label=('Threads %d, batch %d' % (nthreads, nbatch)))
 
+plt.legend()
 plt.show()
