@@ -23,7 +23,8 @@ class SysStat:
         #self.rsss = []
 
         if fileName != None:
-            self.writer = csv.writer(open(self.fileName, 'w'))
+            self.outFile = open(self.fileName, 'w')
+            self.writer = csv.writer(self.outFile)
             columns = ["Datetime", "CPU", "RSS", 'VMSize', "Read", "Write", "Annotation"]
             self.writer.writerow(columns)
 
@@ -64,7 +65,9 @@ class SysStat:
             timestr = time.strftime("%Y-%m-%d %H-%M-%S", time.localtime())
             stat = [timestr, cpuFrac, rss, vmsize, readByte, writeByte, annotation]
             if self.verbose: print(stat)
-            if hasattr(self, 'writer'): self.writer.writerow(stat)
+            if hasattr(self, 'writer'):
+                self.writer.writerow(stat)
+                self.outFile.flush()
 
         self.utime, self.stime, self.rss, self.vmsize = utime, stime, rss, vmsize
         self.io_read, self.io_write = io_read, io_write

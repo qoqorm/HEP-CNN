@@ -34,7 +34,8 @@ historyFile = os.path.join(args.outdir, 'history.csv')
 batchHistoryFile = os.path.join(args.outdir, 'batchHistory.csv')
 usageHistoryFile = os.path.join(args.outdir, 'usageHistory.csv')
 
-proc = subprocess.Popen(['python', '../scripts/monitor_proc.py', '-o', usageHistoryFile, '%d' % os.getpid()],
+proc = subprocess.Popen(['python', '../scripts/monitor_proc.py', '-t', '1',
+                        '-o', usageHistoryFile, '%d' % os.getpid()],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 import time
