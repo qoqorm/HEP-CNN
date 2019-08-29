@@ -11,8 +11,12 @@ import tensorflow as tf
 
 config = tf.ConfigProto()
 nthreads = int(os.popen('nproc').read()) ## nproc takes allowed # of processes. Returns OMP_NUM_THREADS if set
+## From Nurion user guide, intra=1, inter=n_physical_core
 config.intra_op_parallelism_threads = 1 ## for independent graph computations
 config.inter_op_parallelism_threads = nthreads ## for operations which can run in parallel such as matmul or reduction
+## From TF performance manual page, intra=inter=n_physical_core or n_logical_core
+#config.intra_op_parallelism_threads = nthreads
+#config.inter_op_parallelism_threads = nthreads
 tf.Session(config=config)
 
 parser = argparse.ArgumentParser()
