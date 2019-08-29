@@ -10,9 +10,9 @@ import csv
 import tensorflow as tf
 
 config = tf.ConfigProto()
-nthreads = int(os.popen('nproc').read())
-config.intra_op_parallelism_threads = nthreads
-config.inter_op_parallelism_threads = nthreads
+nthreads = int(os.popen('nproc').read()) ## nproc takes allowed # of processes. Returns OMP_NUM_THREADS if set
+config.intra_op_parallelism_threads = 1 ## for independent graph computations
+config.inter_op_parallelism_threads = nthreads ## for operations which can run in parallel such as matmul or reduction
 tf.Session(config=config)
 
 parser = argparse.ArgumentParser()
