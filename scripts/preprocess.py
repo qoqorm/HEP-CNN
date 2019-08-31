@@ -88,10 +88,12 @@ if outFileName.endswith('.h5'):
         print("  keys=", list(outFile.keys()))
         print("  shape=", outFile['all_events']['images'+args.suffix].shape)
 elif outFileName.endswith('npz'):
-    if args.suffix == '':
-        np.savez_compressed(outFileName, image=image, labels=labels, weights=weights)
-    elif args.suffix == '_val':
-        np.savez_compressed(outFileName, image_val=image, labels_val=labels, weights_val=weights)
+    args = {
+        'images'+args.suffix: image,
+        'labels'+args.suffix: labels,
+        'weights'+args.suffix: weights,
+    }
+    np.savez_compressed(outFileName, **args)
     print("  done")
 elif outFileName.endswith('.tfrecords'):
     import tensorflow as tf
