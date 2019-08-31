@@ -54,10 +54,13 @@ sysstat = SysStat(os.getpid(), fileName=batchHistoryFile)
 sysstat.update(annotation="start_loggin")
 
 class H5Dataset(Dataset):
-    def __init__(self, fileName, nEvent):
+    def __init__(self, fileName, nEvent, suffix=""):
         super(H5Dataset, self).__init__()
         print("Opening", fileName, "nEvent=", nEvent)
-        self.data = h5py.File(args.trndata, 'r')
+        if fileName.endswith('h5'):
+            self.data = h5py.File(fileName, 'r')
+        elif fileName.endswith('npz'):
+            self.data = {'all_events':np.load(fileName)}
         if nEvent < 0:
             self.images  = self.data['all_events']['images'][()]
             self.labels  = self.data['all_events']['labels'][()]
@@ -87,11 +90,11 @@ class H5Dataset(Dataset):
         return self.shape[0]
 
 sysstat.update(annotation="open_trn")
-trnDataset = H5Dataset(args.trndata, args.ntrain)
+trnDataset = H5Dataset(args.trndata, args.ntrain, "_val")
 sysstat.update(annotation="read_trn")
 
 sysstat.update(annotation="open_val")
-valDataset = H5Dataset(args.valdata, args.ntest)
+valDataset = H5Dataset(args.valdata, args.ntest, "_val")
 sysstat.update(annotation="read_val")
 
 #if torch.cuda.is_available():
