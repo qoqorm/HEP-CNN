@@ -63,14 +63,20 @@ class SysStatHistory(tf.keras.callbacks.Callback, SysStat):
 sysstat = SysStatHistory(os.getpid())
 sysstat.update(annotation="start_logging")
 
-trn_data = h5py.File(args.trndata, 'r')
+if args.trndata.endswith('h5'):
+    trn_data = h5py.File(args.trndata, 'r')
+elif args.trndata.endswith('npz'):
+    trn_data = {'all_events':np.load(args.trndata)}
 sysstat.update(annotation="open_trn")
 trn_images = trn_data['all_events']['images']#[()]
 trn_labels = trn_data['all_events']['labels']#[()]
 trn_weights = trn_data['all_events']['weights']#[()]
 sysstat.update(annotation="read_trn")
 
-val_data = h5py.File(args.valdata, 'r')
+if args.valdata.endswith('h5'):
+    val_data = h5py.File(args.valdata, 'r')
+elif args.valdata.endswith('npz'):
+    val_data = {'all_events':np.load(args.valdata)}
 sysstat.update(annotation="open_val")
 if 'images_val' in val_data['all_events']:
     val_images = val_data['all_events']['images_val']#[()]

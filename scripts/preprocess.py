@@ -87,6 +87,14 @@ if outFileName.endswith('.h5'):
         print("  created", outFileName)
         print("  keys=", list(outFile.keys()))
         print("  shape=", outFile['all_events']['images'+args.suffix].shape)
+elif outFileName.endswith('npz'):
+    args = {
+        'images'+args.suffix: image,
+        'labels'+args.suffix: labels,
+        'weights'+args.suffix: weights,
+    }
+    np.savez_compressed(outFileName, **args)
+    print("  done")
 elif outFileName.endswith('.tfrecords'):
     import tensorflow as tf
     options = tf.python_io.TFRecordOptions(
