@@ -6,7 +6,6 @@ import sys, os
 import subprocess
 import csv
 
-#from keras.utils.io_utils import HD5Matrix ## available from TF2.X
 import tensorflow as tf
 
 config = tf.ConfigProto()
@@ -28,6 +27,7 @@ parser.add_argument('-t', '--trndata', action='store', type=str, required=True, 
 parser.add_argument('-v', '--valdata', action='store', type=str, required=True, help='input file for validation')
 parser.add_argument('-o', '--outdir', action='store', type=str, required=True, help='Path to output directory')
 parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Learning rate')
+parser.add_argument('--noEarlyStopping', action='store_true', help='do not apply Early Stopping')
 
 args = parser.parse_args()
 
@@ -115,18 +115,20 @@ if not os.path.exists(weightFile):
     try:
         timeHistory = TimeHistory()
         sysstat.update(annotation="train_start")
+        callbacks = [
+            tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
+            tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
+            timeHistory, sysstat,
+        ]
+        if not args.noEarlyStopping:
+            callbacks.append(tf.keras.callbacks.EarlyStopping(verbose=True, patience=20, monitor='val_loss'))
         history = model.fit(trn_images, trn_labels, sample_weight=trn_weights,
                             validation_data = (val_images, val_labels, val_weights),
                             epochs=args.epoch, batch_size=args.batch,
                             verbose=1,
                             shuffle='batch',
                             #shuffle=False,
-                            callbacks = [
-                                tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
-                                tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
-                                tf.keras.callbacks.EarlyStopping(verbose=True, patience=20, monitor='val_loss'),
-                                timeHistory, sysstat,
-                            ])
+                            callbacks = callbacks)
         sysstat.update(annotation="train_end")
 
         history.history['time'] = timeHistory.times[:]
