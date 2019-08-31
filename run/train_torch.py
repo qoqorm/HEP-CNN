@@ -58,10 +58,11 @@ class H5Dataset(Dataset):
         super(H5Dataset, self).__init__()
         print("Opening", fileName, "nEvent=", nEvent)
         self.data = h5py.File(args.trndata, 'r')
-        self.images  = self.data['all_events']['images']#[()]
-        self.labels  = self.data['all_events']['labels']#[()]
-        self.weights = self.data['all_events']['weights']#[()]
-        if nEvent > 0:
+        if nEvent < 0:
+            self.images  = self.data['all_events']['images'][()]
+            self.labels  = self.data['all_events']['labels'][()]
+            self.weights = self.data['all_events']['weights'][()]
+        else:
             self.images  = self.images[:nEvent]
             self.labels  = self.labels[:nEvent]
             self.weights = self.weights[:nEvent]
@@ -95,7 +96,7 @@ sysstat.update(annotation="read_val")
 
 #if torch.cuda.is_available():
 #    num_workers = 1
-num_workers = nthreads
+num_workers = min(4, nthreads)
 
 trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=True, num_workers=num_workers)
 valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=True, num_workers=num_workers)
