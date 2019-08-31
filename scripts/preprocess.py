@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 import h5py
 import numpy as np
 import argparse
@@ -86,7 +86,7 @@ if outFileName.endswith('.h5'):
     with h5py.File(outFileName, 'r') as outFile:
         print("  created", outFileName)
         print("  keys=", list(outFile.keys()))
-        print("  shape=", outFile['all_events']['images'].shape)
+        print("  shape=", outFile['all_events']['images'+args.suffix].shape)
 elif outFileName.endswith('.tfrecords'):
     import tensorflow as tf
     options = tf.python_io.TFRecordOptions(
