@@ -95,6 +95,7 @@ sysstat.update(annotation="read_val")
 
 #if torch.cuda.is_available():
 #    num_workers = 1
+num_workers = nthreads
 
 trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=True, num_workers=num_workers)
 valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=True, num_workers=num_workers)
