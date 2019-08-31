@@ -54,17 +54,18 @@ sysstat = SysStat(os.getpid(), fileName=batchHistoryFile)
 sysstat.update(annotation="start_loggin")
 
 class H5Dataset(Dataset):
-    def __init__(self, fileName, nEvent, suffix=""):
+    def __init__(self, fileName, nEvent):
         super(H5Dataset, self).__init__()
         print("Opening", fileName, "nEvent=", nEvent)
         if fileName.endswith('h5'):
             self.data = h5py.File(fileName, 'r')
         elif fileName.endswith('npz'):
             self.data = {'all_events':np.load(fileName)}
+        suffix = "_val" if 'images_val' in self.data['all_events'] else ""
         if nEvent < 0:
-            self.images  = self.data['all_events']['images'][()]
-            self.labels  = self.data['all_events']['labels'][()]
-            self.weights = self.data['all_events']['weights'][()]
+            self.images  = self.data['all_events']['images'+suffix][()]
+            self.labels  = self.data['all_events']['labels'+suffix][()]
+            self.weights = self.data['all_events']['weights'+suffix][()]
         else:
             self.images  = self.images[:nEvent]
             self.labels  = self.labels[:nEvent]
@@ -90,11 +91,11 @@ class H5Dataset(Dataset):
         return self.shape[0]
 
 sysstat.update(annotation="open_trn")
-trnDataset = H5Dataset(args.trndata, args.ntrain, "_val")
+trnDataset = H5Dataset(args.trndata, args.ntrain)
 sysstat.update(annotation="read_trn")
 
 sysstat.update(annotation="open_val")
-valDataset = H5Dataset(args.valdata, args.ntest, "_val")
+valDataset = H5Dataset(args.valdata, args.ntest)
 sysstat.update(annotation="read_val")
 
 #if torch.cuda.is_available():
