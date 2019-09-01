@@ -8,7 +8,7 @@ class HEPCNNDataGenerator(Iterator):
         if syslogger: syslogger.update(annotation='open file')
         self.fileName = fileName
         if fileName.endswith('.h5'):
-            data = h5py.File(fileName, 'r')
+            data = h5py.File(fileName, 'r', libver='latest', swmr=True)
         elif fileName.endswith('.npz'):
             data = {'all_events':np.load(fileName)}
         suffix = '_val' if 'images_val' in data['all_events'] else ''
