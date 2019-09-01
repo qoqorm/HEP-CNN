@@ -12,6 +12,7 @@ parser.add_argument('--suffix', action='store', type=str, default='', help='suff
 parser.add_argument('--format', action='store', choices=('NHWC', 'NCHW'), default='NHWC', help='image format for output (NHWC for TF default, HCHW for pytorch default)')
 parser.add_argument('--circpad', action='store', type=int, default=0, help='padding size for the circular padding (0 for no-padding)')
 parser.add_argument('--logscale', action='store', type=bool, default=False, help='apply log scaling to images')
+parser.add_argument('-c', '--chunk', action='store', type=int, default=1024, help='chunk size')
 args = parser.parse_args()
 
 srcFileName = args.input
@@ -73,7 +74,7 @@ print("  Output image shape=", image.shape)
 
 print("Writing output file %s..." % outFileName)
 nEvent = image.shape[0]
-chunkSize = min(1024, nEvent)
+chunkSize = min(args.chunk, nEvent)
 if outFileName.endswith('.h5'):
     with h5py.File(outFileName, 'w', libver='latest') as outFile:
         g = outFile.create_group('all_events')
