@@ -103,8 +103,8 @@ sysstat.update(annotation="select_val")
 shape = trn_images.shape
 
 ## Build model
-sys.path.append("../models")
-from HEPCNN.keras_default import MyModel
+sys.path.append("../python")
+from HEPCNN.keras_model_default import MyModel
 model = MyModel(shape[1:])
 
 optm = tf.keras.optimizers.Adam(args.lr)
@@ -132,8 +132,9 @@ if not os.path.exists(weightFile):
                             validation_data = (val_images, val_labels, val_weights),
                             epochs=args.epoch, batch_size=args.batch,
                             verbose=1,
-                            shuffle='batch',
-                            #shuffle=False,
+                            shuffle=False,
+                            #shuffle='batch',
+                            #shuffle=True,
                             callbacks = callbacks)
         sysstat.update(annotation="train_end")
 
