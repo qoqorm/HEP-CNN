@@ -9,7 +9,7 @@ import csv
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 
 nthreads = int(os.popen('nproc').read()) ## nproc takes allowed # of processes. Returns OMP_NUM_THREADS if set
 #num_workers = os.cpu_count()
@@ -53,42 +53,8 @@ from monitor_proc import SysStat
 sysstat = SysStat(os.getpid(), fileName=batchHistoryFile)
 sysstat.update(annotation="start_loggin")
 
-class H5Dataset(Dataset):
-    def __init__(self, fileName, nEvent):
-        super(H5Dataset, self).__init__()
-        print("Opening", fileName, "nEvent=", nEvent)
-        if fileName.endswith('h5'):
-            self.data = h5py.File(fileName, 'r')
-        elif fileName.endswith('npz'):
-            self.data = {'all_events':np.load(fileName)}
-        suffix = "_val" if 'images_val' in self.data['all_events'] else ""
-        if nEvent < 0:
-            self.images  = self.data['all_events']['images'+suffix][()]
-            self.labels  = self.data['all_events']['labels'+suffix][()]
-            self.weights = self.data['all_events']['weights'+suffix][()]
-        else:
-            self.images  = self.images[:nEvent]
-            self.labels  = self.labels[:nEvent]
-            self.weights = self.weights[:nEvent]
-        print("Convert data to Tensors")
-        self.images = torch.Tensor(self.images)
-        self.labels = torch.Tensor(self.labels)
-        self.weights = torch.Tensor(self.weights)
-        self.shape = self.images.shape
-
-        width, height, channel = self.shape[1:]
-        self.data_format = 'NHWC'
-        if channel > 5:
-            channel, width, height = width, height, channel
-            self.data_format = 'NCHW'
-        self.channel, self.width, self.height = channel, width, height
-
-    def __getitem__(self, idx):
-        return (self.images[idx] if self.data_format == 'NCHW' else np.transpose(self.images[idx], (2,1,0)),
-                self.labels[idx], self.weights[idx])
-
-    def __len__(self):
-        return self.shape[0]
+sys.path.append("../python")
+from HEPCNN.torch_dataset import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="open_trn")
 trnDataset = H5Dataset(args.trndata, args.ntrain)
@@ -106,9 +72,8 @@ trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=True, num_work
 valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=True, num_workers=num_workers)
 
 ## Build model
-sys.path.append("../models")
 #if torch.cuda.is_available: kwargs = {'num_workers': 1, 'pin_memory': True}
-from HEPCNN.torch_default import MyModel
+from HEPCNN.torch_model_default import MyModel
 model = MyModel(trnDataset.width, trnDataset.height)
 optm = optim.Adam(model.parameters(), lr=args.lr)
 crit = torch.nn.BCELoss()
