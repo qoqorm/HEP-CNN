@@ -57,11 +57,11 @@ sys.path.append("../python")
 from HEPCNN.torch_dataset import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="open_trn")
-trnDataset = H5Dataset(args.trndata, args.ntrain)
+trnDataset = MyDataset(args.trndata, args.ntrain)
 sysstat.update(annotation="read_trn")
 
 sysstat.update(annotation="open_val")
-valDataset = H5Dataset(args.valdata, args.ntest)
+valDataset = MyDataset(args.valdata, args.ntest)
 sysstat.update(annotation="read_val")
 
 #if torch.cuda.is_available():
