@@ -63,49 +63,14 @@ class SysStatHistory(tf.keras.callbacks.Callback, SysStat):
 sysstat = SysStatHistory(os.getpid())
 sysstat.update(annotation="start_logging")
 
-if args.trndata.endswith('h5'):
-    trn_data = h5py.File(args.trndata, 'r')
-elif args.trndata.endswith('npz'):
-    trn_data = {'all_events':np.load(args.trndata)}
-sysstat.update(annotation="open_trn")
-trn_images = trn_data['all_events']['images']#[()]
-trn_labels = trn_data['all_events']['labels']#[()]
-trn_weights = trn_data['all_events']['weights']#[()]
-sysstat.update(annotation="read_trn")
-
-if args.valdata.endswith('h5'):
-    val_data = h5py.File(args.valdata, 'r')
-elif args.valdata.endswith('npz'):
-    val_data = {'all_events':np.load(args.valdata)}
-sysstat.update(annotation="open_val")
-if 'images_val' in val_data['all_events']:
-    val_images = val_data['all_events']['images_val']#[()]
-    val_labels = val_data['all_events']['labels_val']#[()]
-    val_weights = val_data['all_events']['weights_val']#[()]
-else:
-    val_images = val_data['all_events']['images']#[()]
-    val_labels = val_data['all_events']['labels']#[()]
-    val_weights = val_data['all_events']['weights']#[()]
-sysstat.update(annotation="read_val")
-
-if args.ntrain > 0:
-    trn_images = trn_images[:args.ntrain]
-    trn_labels = trn_labels[:args.ntrain]
-    trn_weights = trn_weights[:args.ntrain]
-sysstat.update(annotation="select_trn")
-
-if args.ntest > 0:
-    val_images = val_images[:args.ntest]
-    val_labels = val_labels[:args.ntest]
-    val_weights = val_weights[:args.ntest]
-sysstat.update(annotation="select_val")
-
-shape = trn_images.shape
+sys.path.append("../python")
+from HEPCNN.keras_dataGenerator import HEPCNNDataGenerator as DataLoader
+trn_dataLoader = DataLoader(args.trndata, args.batch, nEvent=args.ntrain, syslogger=sysstat)
+val_dataLoader = DataLoader(args.valdata, args.batch, nEvent=args.ntest, syslogger=sysstat)
 
 ## Build model
-sys.path.append("../python")
 from HEPCNN.keras_model_default import MyModel
-model = MyModel(shape[1:])
+model = MyModel(trn_dataLoader.shape[1:])
 
 optm = tf.keras.optimizers.Adam(args.lr)
 
@@ -128,14 +93,20 @@ if not os.path.exists(weightFile):
         ]
         if not args.noEarlyStopping:
             callbacks.append(tf.keras.callbacks.EarlyStopping(verbose=True, patience=20, monitor='val_loss'))
-        history = model.fit(trn_images, trn_labels, sample_weight=trn_weights,
-                            validation_data = (val_images, val_labels, val_weights),
-                            epochs=args.epoch, batch_size=args.batch,
-                            verbose=1,
-                            shuffle=False,
-                            #shuffle='batch',
-                            #shuffle=True,
-                            callbacks = callbacks)
+        #history = model.fit(trn_dataLoader.images, trn_dataLoader.labels, sample_weight=trn_dataLoader.weights,
+        #                    validation_data = (val_dataLoader.images, val_dataLoader.labels, val_dataLoader.weights),
+        #                    epochs=args.epoch, batch_size=args.batch,
+        #                    verbose=1,
+        #                    shuffle=False,
+        #                    #shuffle='batch',
+        #                    #shuffle=True,
+        #                    callbacks = callbacks)
+        history = model.fit_generator(generator=trn_dataLoader,
+                                      validation_data = val_dataLoader,
+                                      epochs=args.epoch, verbose=1, workers=4,# use_multiprocessing=True,
+                                      #shuffle='batch',
+                                      #shuffle=True,
+                                      callbacks = callbacks)
         sysstat.update(annotation="train_end")
 
         history.history['time'] = timeHistory.times[:]
