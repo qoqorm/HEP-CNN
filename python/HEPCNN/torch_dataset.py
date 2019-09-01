@@ -1,39 +1,47 @@
 #!/usr/bin/env pythnon
-from torch.utils.data import Dataset, DataLoader
+import numpy as np
+import h5py
+import torch
+from torch.utils.data import Dataset
 
 class HEPCNNDataset(Dataset):
-    def __init__(self, fileName, nEvent):
-        super(H5Dataset, self).__init__()
-        print("Opening", fileName, "nEvent=", nEvent)
-
+    def __init__(self, fileName, nEvent=-1, syslogger=None):
+        super(HEPCNNDataset, self).__init__()
+        if syslogger: syslogger.update(annotation='open file '+ fileName)
+        self.fileName = fileName
         if fileName.endswith('h5'):
-            self.data = h5py.File(fileName, 'r')
+            data = h5py.File(fileName, 'r')
         elif fileName.endswith('npz'):
-            self.data = {'all_events':np.load(fileName)}
+            data = {'all_events':np.load(fileName)}
+        suffix = "_val" if 'images_val' in data['all_events'] else ""
 
-        suffix = "_val" if 'images_val' in self.data['all_events'] else ""
-        if nEvent < 0:
-            self.images  = self.data['all_events']['images'+suffix][()]
-            self.labels  = self.data['all_events']['labels'+suffix][()]
-            self.weights = self.data['all_events']['weights'+suffix][()]
-        else:
-            self.images  = self.images[:nEvent]
-            self.labels  = self.labels[:nEvent]
+        if syslogger: syslogger.update(annotation='read file')
+        self.images = data['all_events']['images'+suffix]
+        self.labels = data['all_events']['labels'+suffix]
+        self.weights = data['all_events']['weights'+suffix]
+
+        if nEvent > 0:
+            self.images = self.images[:nEvent]
+            self.labels = self.labels[:nEvent]
             self.weights = self.weights[:nEvent]
+        else:
+            self.images = self.images[()]
+            self.labels = self.labels[()]
+            self.weights = self.weights[()]
+        if syslogger: syslogger.update(annotation='select events')
 
-        print("Convert data to Tensors")
         self.images = torch.Tensor(self.images)
         self.labels = torch.Tensor(self.labels)
         self.weights = torch.Tensor(self.weights)
-        self.shape = self.images.shape
+        if syslogger: syslogger.update(annotation="Convert data to Tensors")
 
-        width, height, channel = self.shape[1:]
-        self.data_format = 'NHWC'
-        if channel > 5:
-            channel, width, height = width, height, channel
-            self.data_format = 'NCHW'
-            self.images = np.transpose(self.images[idx], (2,1,0))
-        self.channel, self.width, self.height = channel, width, height
+        self.shape = self.images.shape
+        if self.shape[-1] <= 5:
+            ## actual format was NHWC. convert to pytorch native format, NCHW
+            self.images = self.images.permute(0,3,1,2)
+            self.shape = self.images.shape
+            if syslogger: syslogger.update(annotation="Convert image format")
+        self.channel, self.height, self.width = self.shape[1:]
 
     def __getitem__(self, idx):
         return (self.images[idx], self.labels[idx], self.weights[idx])
