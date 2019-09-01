@@ -5,7 +5,7 @@ from tensorflow.keras.preprocessing.image import Iterator
 
 class HEPCNNDataGenerator(Iterator):
     def __init__(self, fileName, batch_size, shuffle=False, seed=1234567, nEvent=-1, syslogger=None):
-        if syslogger: syslogger.update(annotation='open file')
+        if syslogger: syslogger.update(annotation='open file '+fileName)
         self.fileName = fileName
         if fileName.endswith('.h5'):
             data = h5py.File(fileName, 'r', libver='latest', swmr=True)
