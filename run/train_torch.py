@@ -29,7 +29,7 @@ parser.add_argument('--noEarlyStopping', action='store_true', help='do not apply
 args = parser.parse_args()
 
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
-weightFile = os.path.join(args.outdir, 'weight.h5')
+weightFile = os.path.join(args.outdir, 'weight.pkl')
 predFile = os.path.join(args.outdir, 'predict.npy')
 historyFile = os.path.join(args.outdir, 'history.csv')
 batchHistoryFile = os.path.join(args.outdir, 'batchHistory.csv')
@@ -158,9 +158,12 @@ if not os.path.exists(weightFile):
     except KeyboardInterrupt:
         print("Training finished early")
 
-#model.load_weights(weightFile)
-#pred = model.predict(val_images, verbose=1, batch_size=args.batch)
+torch.save(bestModel, weightFile)
 
-#np.save(predFile, pred)
+model.load_state_dict(torch.load(weightFile))
+model.eval()
+pred = model(valDataset.images.to(device))
+
+np.save(predFile, pred.to('cpu').detach().numpy())
 sysstat.update(annotation="saved_model")
 
