@@ -65,8 +65,8 @@ sysstat.update(annotation="start_logging")
 
 sys.path.append("../python")
 from HEPCNN.keras_dataGenerator import HEPCNNDataGenerator as DataLoader
-trn_dataLoader = DataLoader(args.trndata, args.batch, nEvent=args.ntrain, syslogger=sysstat)
-val_dataLoader = DataLoader(args.valdata, args.batch, nEvent=args.ntest, syslogger=sysstat)
+trn_dataLoader = DataLoader(args.trndata, args.batch, shuffle=True, nEvent=args.ntrain, syslogger=sysstat)
+val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=True, nEvent=args.ntest, syslogger=sysstat)
 
 ## Build model
 from HEPCNN.keras_model_default import MyModel
@@ -104,8 +104,6 @@ if not os.path.exists(weightFile):
         history = model.fit_generator(generator=trn_dataLoader,
                                       validation_data = val_dataLoader,
                                       epochs=args.epoch, verbose=1, workers=4,# use_multiprocessing=True,
-                                      #shuffle='batch',
-                                      #shuffle=True,
                                       callbacks = callbacks)
         sysstat.update(annotation="train_end")
 
@@ -122,7 +120,7 @@ if not os.path.exists(weightFile):
         print("Training finished early")
 
 model.load_weights(weightFile)
-pred = model.predict(val_images, verbose=1, batch_size=args.batch)
+pred = model.predict(val_dataLoader.images, verbose=1, batch_size=args.batch)
 
 np.save(predFile, pred)
 sysstat.update(annotation="saved_model")
