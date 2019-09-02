@@ -11,6 +11,11 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
+try:
+    import horovod.torch as hvd
+except:
+    hvd = None
+
 nthreads = int(os.popen('nproc').read()) ## nproc takes allowed # of processes. Returns OMP_NUM_THREADS if set
 #num_workers = os.cpu_count()
 #torch.omp_set_num_threads(nthreads)
@@ -28,12 +33,19 @@ parser.add_argument('--noEarlyStopping', action='store_true', help='do not apply
 
 args = parser.parse_args()
 
+hvd_rank, hvd_size = 0, 1
+if hvd:
+    hvd.init()
+    hvd_rank = hvd.rank()
+    #torch.manual_seed(args.seed)
+    #torch.cuda.set_device(hvd.local_rank())
+
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
-weightFile = os.path.join(args.outdir, 'weight.pkl')
-predFile = os.path.join(args.outdir, 'predict.npy')
-historyFile = os.path.join(args.outdir, 'history.csv')
-batchHistoryFile = os.path.join(args.outdir, 'batchHistory.csv')
-usageHistoryFile = os.path.join(args.outdir, 'usageHistory.csv')
+weightFile = os.path.join(args.outdir, 'weight_%d.pkl' % hvd_rank)
+predFile = os.path.join(args.outdir, 'predict_%d.npy' % hvd_rank)
+historyFile = os.path.join(args.outdir, 'history_%d.csv' % hvd_rank)
+batchHistoryFile = os.path.join(args.outdir, 'batchHistory_%d.csv' % hvd_rank)
+usageHistoryFile = os.path.join(args.outdir, 'usageHistory_%d.csv' % hvd_rank)
 
 proc = subprocess.Popen(['python', '../scripts/monitor_proc.py', '-t', '1',
                         '-o', usageHistoryFile, '%d' % os.getpid()],
@@ -67,23 +79,47 @@ sysstat.update(annotation="read_val")
 #if torch.cuda.is_available():
 #    num_workers = 1
 num_workers = min(4, nthreads)
-
-trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=True, num_workers=num_workers)
-valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=True, num_workers=num_workers)
-
-## Build model
-#if torch.cuda.is_available: kwargs = {'num_workers': 1, 'pin_memory': True}
-from HEPCNN.torch_model_default import MyModel
-model = MyModel(trnDataset.width, trnDataset.height)
-optm = optim.Adam(model.parameters(), lr=args.lr)
-crit = torch.nn.BCELoss()
+torch.set_num_threads(nthreads)
 
 device = 'cpu'
+kwargs = {'num_workers':4}
 if torch.cuda.is_available():
     model = model.cuda()
     crit = crit.cuda()
     device = 'cuda'
-    #kwargs = {'num_workers': 1, 'pin_memory': True}
+    if hvd:
+        kwargs['num_workers'] = 1
+        kwargs['pin_memory'] = True
+
+if hvd:
+    trnSampler = torch.utils.data.distributed.DistributedSampler(trnDataset, num_replicas=hvd.size(), rank=hvd_rank)
+    valSampler = torch.utils.data.distributed.DistributedSampler(valDataset, num_replicas=hvd.size(), rank=hvd_rank)
+    trnLoader = DataLoader(trnDataset, batch_size=args.batch, sampler=trnSampler, **kwargs)
+    valLoader = DataLoader(valDataset, batch_size=args.batch, sampler=valSampler, **kwargs)
+else:
+    trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=False, **kwargs)
+    valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=False, **kwargs)
+
+## Build model
+from HEPCNN.torch_model_default import MyModel
+model = MyModel(trnDataset.width, trnDataset.height)
+optm = optim.Adam(model.parameters(), lr=args.lr*hvd_size)
+#optimizer = optim.SGD(model.parameters(), lr=args.lr * hvd.size(),
+#                      momentum=args.momentum)
+crit = torch.nn.BCELoss()
+
+if hvd:
+    hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+    hvd.broadcast_optimizer_state(optm, root_rank=0)
+    compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+    optm = hvd.DistributedOptimizer(optm,
+                                    named_parameters=model.named_parameters(),
+                                    compression=compression)
+
+def metric_average(val, name):
+    tensor = torch.tensor(val)
+    avg_tensor = hvd.allreduce(tensor, name=name)
+    return avg_tensor.item()
 
 sysstat.update(annotation="modelsetup_done")
 
@@ -116,8 +152,8 @@ if not os.path.exists(weightFile):
                 trn_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
 
                 sysstat.update()
-            trn_loss /= (i+1)
-            trn_acc /= (i+1)
+            trn_loss /= len(trnSampler) if hvd else (i+1)
+            trn_acc  /= len(trnSampler) if hvd else (i+1)
 
             model.eval()
             val_loss, val_acc = 0., 0.
@@ -130,12 +166,14 @@ if not os.path.exists(weightFile):
 
                 val_loss += loss.item()
                 val_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
-            val_loss /= (i+1)
-            val_acc /= (i+1)
+            val_loss /= len(valSampler) if hvd else (i+1)
+            val_acc  /= len(valSampler) if hvd else (i+1)
 
-            if bestAcc < val_acc:
-                bestModel = model.state_dict()
-                bestAcc = val_acc
+            if hvd and hvd_rank == 0:
+                val_acc = metric_average(val_acc, 'avg_accuracy')
+                if bestAcc < val_acc:
+                    bestModel = model.state_dict()
+                    bestAcc = val_acc
 
             timeHistory.on_epoch_end()
             sysstat.update(annotation='epoch_end')
