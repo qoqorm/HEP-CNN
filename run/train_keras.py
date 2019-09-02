@@ -9,11 +9,11 @@ import csv
 import tensorflow as tf
 
 try:
-    import horovod.keras as hvd
+    import horovod.tensorflow.keras as hvd
 except:
     hvd = None
 
-nthreads = int(os.popen('nproc').read()) ## nproc takes allowed # of processes. Returns OMP_NUM_THREADS if set
+nthreads = 16 #int(os.popen('nproc').read()) ## nproc takes allowed # of processes. Returns OMP_NUM_THREADS if set
 config = tf.ConfigProto()
 ## From Nurion user guide, intra=1, inter=n_physical_core
 config.intra_op_parallelism_threads = 1 ## for independent graph computations
@@ -39,9 +39,13 @@ epochs = args.epoch
 
 hvd_rank, hvd_size = 0, 1
 if hvd:
+    import math
+    print("Hovorod is available. (%d/%d)", (hvd_rank, hvd_size))
     hvd.init()
     hvd_rank = hvd.rank()
     epochs = int(math.ceil(nthreads / hvd_size))
+else:
+    exit()
 
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
 weightFile = os.path.join(args.outdir, 'weight_%d.h5' % hvd_rank)
