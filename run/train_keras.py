@@ -65,8 +65,8 @@ sysstat.update(annotation="start_logging")
 
 sys.path.append("../python")
 from HEPCNN.keras_dataGenerator import HEPCNNDataGenerator as DataLoader
-trn_dataLoader = DataLoader(args.trndata, args.batch, shuffle=True, nEvent=args.ntrain, syslogger=sysstat)
-val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=True, nEvent=args.ntest, syslogger=sysstat)
+trn_dataLoader = DataLoader(args.trndata, args.batch, shuffle=False, nEvent=args.ntrain, syslogger=sysstat)
+val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
 
 ## Build model
 from HEPCNN.keras_model_default import MyModel
