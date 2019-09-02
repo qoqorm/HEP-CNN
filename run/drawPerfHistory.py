@@ -41,8 +41,9 @@ for d in dirs:
         usage = pd.read_csv('%s/batchHistory.csv' % d)
         usage2 = pd.read_csv('%s/usageHistory.csv' % d)
 
-        usage.append(usage2, ignore_index=True)
+        usage = usage.append(usage2, ignore_index=True)
         usage['Datetime'] = pd.to_datetime(usage['Datetime'], format='%Y-%m-%d %H-%M-%S')
+        usage = usage.sort_values(['Datetime'])
         beginTime = min(usage['Datetime'])
 
         usage['time'] = (usage['Datetime']-beginTime).dt.total_seconds()
@@ -56,8 +57,8 @@ for d in dirs:
         plt.ylabel('%s(%s)' % (metric, unit))
         #ax.set_xlim([0, 1000])
         #plt.yscale('log')
-        if metric == 'CPU':
-            ax.set_ylim([0, 6000])
+        #if metric == 'CPU':
+        #    ax.set_ylim([0, 6000])
 
         plt.legend()
     plt.tight_layout()
@@ -65,34 +66,36 @@ for d in dirs:
     plt.savefig('%s/%s.png' % (d, metric))
     plt.show()
 
-plt.rcParams['figure.figsize'] = (7, len(dirs)*1.2)
-for metric in metrics:
-    for i, d in enumerate(dirs):
-        hostInfo, pars = d.split('/',1)
-        hostAlias, hostSpec = hostInfo.replace('perf_', '').split('_',1)
+if len(dirs) > 1:
+    plt.rcParams['figure.figsize'] = (7, len(dirs)*1.2)
+    for metric in metrics:
+        for i, d in enumerate(dirs):
+            hostInfo, pars = d.split('/',1)
+            hostAlias, hostSpec = hostInfo.replace('perf_', '').split('_',1)
 
-        usage = pd.read_csv('%s/batchHistory.csv' % d)
-        usage2 = pd.read_csv('%s/usageHistory.csv' % d)
+            usage = pd.read_csv('%s/batchHistory.csv' % d)
+            usage2 = pd.read_csv('%s/usageHistory.csv' % d)
 
-        usage.append(usage2, ignore_index=True)
-        usage['Datetime'] = pd.to_datetime(usage['Datetime'], format='%Y-%m-%d %H-%M-%S')
-        beginTime = min(usage['Datetime'])
+            usage = usage.append(usage2, ignore_index=True)
+            usage['Datetime'] = pd.to_datetime(usage['Datetime'], format='%Y-%m-%d %H-%M-%S')
+            usage = usage.sort_values(['Datetime'])
+            beginTime = min(usage['Datetime'])
 
-        usage['time'] = (usage['Datetime']-beginTime).dt.total_seconds()
-        unit, scale = metrics_opts[metric]
+            usage['time'] = (usage['Datetime']-beginTime).dt.total_seconds()
+            unit, scale = metrics_opts[metric]
 
-        ax = plt.subplot(len(dirs), 1, i+1)
-        plt.plot(usage['time'], usage[metric]/scale, '.-', c=cols[i], label=(pars.replace('__', ' ')))
-        plt.grid(linestyle=':')
-        if i == len(dirs)-1: plt.xlabel('time')
-        plt.ylabel('%s(%s)' % (metric, unit))
-        ax.set_xlim([0, maxTime])
-        #plt.yscale('log')
-        if metric == 'CPU':
-            ax.set_ylim([0, 6000])
+            ax = plt.subplot(len(dirs), 1, i+1)
+            plt.plot(usage['time'], usage[metric]/scale, '.-', c=cols[i], label=(pars.replace('__', ' ')))
+            plt.grid(linestyle=':')
+            if i == len(dirs)-1: plt.xlabel('time')
+            plt.ylabel('%s(%s)' % (metric, unit))
+            ax.set_xlim([0, maxTime])
+            #plt.yscale('log')
+            if metric == 'CPU':
+                ax.set_ylim([0, 6000])
 
-        plt.legend()
-    plt.tight_layout()
+            plt.legend()
+        plt.tight_layout()
 
-    plt.savefig('%s.png' % (metric))
-    plt.show()
+        plt.savefig('%s.png' % (metric))
+        plt.show()

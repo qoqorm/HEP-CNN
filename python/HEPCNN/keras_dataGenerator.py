@@ -14,9 +14,9 @@ class HEPCNNDataGenerator(Iterator):
         suffix = '_val' if 'images_val' in data['all_events'] else ''
 
         if syslogger: syslogger.update(annotation='read file')
-        self.images = data['all_events']['images'+suffix]
-        self.labels = data['all_events']['labels'+suffix]
-        self.weights = data['all_events']['weights'+suffix]
+        self.images = data['all_events']['images'+suffix][()]
+        self.labels = data['all_events']['labels'+suffix][()]
+        self.weights = data['all_events']['weights'+suffix][()]
 
         if nEvent > 0:
             self.images = self.images[:nEvent]

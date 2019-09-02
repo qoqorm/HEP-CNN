@@ -162,8 +162,8 @@ torch.save(bestModel, weightFile)
 
 model.load_state_dict(torch.load(weightFile))
 model.eval()
-pred = model(valDataset.images.to(device))
+#pred = model(valDataset.images.to(device))
 
-np.save(predFile, pred.to('cpu').detach().numpy())
+#np.save(predFile, pred.to('cpu').detach().numpy())
 sysstat.update(annotation="saved_model")
 
