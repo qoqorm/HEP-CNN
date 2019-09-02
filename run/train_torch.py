@@ -93,7 +93,8 @@ if hvd:
     valLoader = DataLoader(valDataset, batch_size=args.batch, sampler=valSampler, **kwargs)
 else:
     trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=False, **kwargs)
-    valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=False, **kwargs)
+    #valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=False, **kwargs)
+    valLoader = DataLoader(valDataset, batch_size=1024, shuffle=False, **kwargs)
 
 ## Build model
 from HEPCNN.torch_model_default import MyModel
@@ -170,8 +171,8 @@ if not os.path.exists(weightFile):
             val_loss /= len(valSampler) if hvd else (i+1)
             val_acc  /= len(valSampler) if hvd else (i+1)
 
-            if hvd and hvd_rank == 0:
-                val_acc = metric_average(val_acc, 'avg_accuracy')
+            if hvd_rank == 0:
+                if hvd: val_acc = metric_average(val_acc, 'avg_accuracy')
                 if bestAcc < val_acc:
                     bestModel = model.state_dict()
                     bestAcc = val_acc
@@ -197,12 +198,13 @@ if not os.path.exists(weightFile):
     except KeyboardInterrupt:
         print("Training finished early")
 
-torch.save(bestModel, weightFile)
+if hvd_rank == 0:
+    torch.save(bestModel, weightFile)
 
-model.load_state_dict(torch.load(weightFile))
-model.eval()
-#pred = model(valDataset.images.to(device))
+    model.load_state_dict(torch.load(weightFile))
+    model.eval()
+    #pred = model(valDataset.images.to(device))
 
-#np.save(predFile, pred.to('cpu').detach().numpy())
-sysstat.update(annotation="saved_model")
+    #np.save(predFile, pred.to('cpu').detach().numpy())
+    sysstat.update(annotation="saved_model")
 

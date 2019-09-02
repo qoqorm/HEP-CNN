@@ -101,13 +101,16 @@ if not os.path.exists(weightFile):
         timeHistory = TimeHistory()
         sysstat.update(annotation="train_start")
         callbacks = [
-            tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
-            tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
             timeHistory, sysstat,
         ]
         if not args.noEarlyStopping:
             callbacks.append(tf.keras.callbacks.EarlyStopping(verbose=True, patience=20, monitor='val_loss'))
-        if hvd and hvd_rank == 0: callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
+        if hvd and hvd_rank == 0:
+            callbacks.extend([
+                tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
+                tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
+                hvd.callbacks.BroadcastGlobalVariablesCallback(0),
+            ])
         #history = model.fit(trn_dataLoader.images, trn_dataLoader.labels, sample_weight=trn_dataLoader.weights,
         #                    validation_data = (val_dataLoader.images, val_dataLoader.labels, val_dataLoader.weights),
         #                    epochs=epochs, batch_size=args.batch,
@@ -134,8 +137,9 @@ if not os.path.exists(weightFile):
     except KeyboardInterrupt:
         print("Training finished early")
 
-model.load_weights(weightFile)
-pred = model.predict(val_dataLoader.images, verbose=1, batch_size=args.batch)
+if hvd_rank == 0:
+    model.load_weights(weightFile)
+    pred = model.predict(val_dataLoader.images, verbose=1, batch_size=args.batch)
 
-np.save(predFile, pred)
-sysstat.update(annotation="saved_model")
+    np.save(predFile, pred)
+    sysstat.update(annotation="saved_model")
