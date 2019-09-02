@@ -8,8 +8,13 @@ import csv
 
 import tensorflow as tf
 
-config = tf.ConfigProto()
+try:
+    import horovod.keras as hvd
+except:
+    hvd = None
+
 nthreads = int(os.popen('nproc').read()) ## nproc takes allowed # of processes. Returns OMP_NUM_THREADS if set
+config = tf.ConfigProto()
 ## From Nurion user guide, intra=1, inter=n_physical_core
 config.intra_op_parallelism_threads = 1 ## for independent graph computations
 config.inter_op_parallelism_threads = nthreads ## for operations which can run in parallel such as matmul or reduction
@@ -30,13 +35,20 @@ parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Lear
 parser.add_argument('--noEarlyStopping', action='store_true', help='do not apply Early Stopping')
 
 args = parser.parse_args()
+epochs = args.epoch
+
+hvd_rank, hvd_size = 0, 1
+if hvd:
+    hvd.init()
+    hvd_rank = hvd.rank()
+    epochs = int(math.ceil(nthreads / hvd_size))
 
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
-weightFile = os.path.join(args.outdir, 'weight.h5')
-predFile = os.path.join(args.outdir, 'predict.npy')
-historyFile = os.path.join(args.outdir, 'history.csv')
-batchHistoryFile = os.path.join(args.outdir, 'batchHistory.csv')
-usageHistoryFile = os.path.join(args.outdir, 'usageHistory.csv')
+weightFile = os.path.join(args.outdir, 'weight_%d.h5' % hvd_rank)
+predFile = os.path.join(args.outdir, 'predict_%d.npy' % hvd_rank)
+historyFile = os.path.join(args.outdir, 'history_%d.csv' % hvd_rank)
+batchHistoryFile = os.path.join(args.outdir, 'batchHistory_%d.csv' % hvd_rank)
+usageHistoryFile = os.path.join(args.outdir, 'usageHistory_%d.csv' % hvd_rank)
 
 proc = subprocess.Popen(['python', '../scripts/monitor_proc.py', '-t', '1',
                         '-o', usageHistoryFile, '%d' % os.getpid()],
@@ -66,13 +78,15 @@ sysstat.update(annotation="start_logging")
 sys.path.append("../python")
 from HEPCNN.keras_dataGenerator import HEPCNNDataGenerator as DataLoader
 trn_dataLoader = DataLoader(args.trndata, args.batch, shuffle=False, nEvent=args.ntrain, syslogger=sysstat)
-val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
+#val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
+val_dataLoader = DataLoader(args.valdata, 1024, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
 
 ## Build model
 from HEPCNN.keras_model_default import MyModel
 model = MyModel(trn_dataLoader.shape[1:])
 
-optm = tf.keras.optimizers.Adam(args.lr)
+optm = tf.keras.optimizers.Adam(args.lr*hvd_size)
+if hvd: optm = hvd.DistributedOptimizer(optm)
 
 model.compile(
       optimizer=optm,
@@ -87,15 +101,19 @@ if not os.path.exists(weightFile):
         timeHistory = TimeHistory()
         sysstat.update(annotation="train_start")
         callbacks = [
-            tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
-            tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
             timeHistory, sysstat,
         ]
         if not args.noEarlyStopping:
             callbacks.append(tf.keras.callbacks.EarlyStopping(verbose=True, patience=20, monitor='val_loss'))
+        if hvd_rank == 0:
+            callbacks.extend([
+                tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
+                tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
+            ])
+            if hvd: callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
         #history = model.fit(trn_dataLoader.images, trn_dataLoader.labels, sample_weight=trn_dataLoader.weights,
         #                    validation_data = (val_dataLoader.images, val_dataLoader.labels, val_dataLoader.weights),
-        #                    epochs=args.epoch, batch_size=args.batch,
+        #                    epochs=epochs, batch_size=args.batch,
         #                    verbose=1,
         #                    shuffle=False,
         #                    #shuffle='batch',
@@ -103,7 +121,7 @@ if not os.path.exists(weightFile):
         #                    callbacks = callbacks)
         history = model.fit_generator(generator=trn_dataLoader,
                                       validation_data = val_dataLoader,
-                                      epochs=args.epoch, verbose=1, workers=4,# use_multiprocessing=True,
+                                      epochs=epochs, verbose=1 if hvd_rank == 0 else 0, workers=4,# use_multiprocessing=True,
                                       callbacks = callbacks)
         sysstat.update(annotation="train_end")
 
@@ -119,8 +137,9 @@ if not os.path.exists(weightFile):
     except KeyboardInterrupt:
         print("Training finished early")
 
-model.load_weights(weightFile)
-pred = model.predict(val_dataLoader.images, verbose=1, batch_size=args.batch)
+if hvd_rank == 0:
+    model.load_weights(weightFile)
+    pred = model.predict(val_dataLoader.images, verbose=1, batch_size=args.batch)
 
-np.save(predFile, pred)
-sysstat.update(annotation="saved_model")
+    np.save(predFile, pred)
+    sysstat.update(annotation="saved_model")
