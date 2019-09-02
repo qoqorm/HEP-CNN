@@ -81,15 +81,10 @@ sysstat.update(annotation="read_val")
 num_workers = min(4, nthreads)
 torch.set_num_threads(nthreads)
 
-device = 'cpu'
 kwargs = {'num_workers':4}
-if torch.cuda.is_available():
-    model = model.cuda()
-    crit = crit.cuda()
-    device = 'cuda'
-    if hvd:
-        kwargs['num_workers'] = 1
-        kwargs['pin_memory'] = True
+if torch.cuda.is_available() and hvd:
+    kwargs['num_workers'] = 1
+    kwargs['pin_memory'] = True
 
 if hvd:
     trnSampler = torch.utils.data.distributed.DistributedSampler(trnDataset, num_replicas=hvd.size(), rank=hvd_rank)
@@ -107,6 +102,12 @@ optm = optim.Adam(model.parameters(), lr=args.lr*hvd_size)
 #optimizer = optim.SGD(model.parameters(), lr=args.lr * hvd.size(),
 #                      momentum=args.momentum)
 crit = torch.nn.BCELoss()
+
+device = 'cpu'
+if torch.cuda.is_available():
+    model = model.cuda()
+    crit = crit.cuda()
+    device = 'cuda'
 
 if hvd:
     hvd.broadcast_parameters(model.state_dict(), root_rank=0)
