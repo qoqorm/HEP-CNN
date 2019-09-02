@@ -105,12 +105,12 @@ if not os.path.exists(weightFile):
         ]
         if not args.noEarlyStopping:
             callbacks.append(tf.keras.callbacks.EarlyStopping(verbose=True, patience=20, monitor='val_loss'))
-        if hvd and hvd_rank == 0:
+        if hvd_rank == 0:
             callbacks.extend([
                 tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
                 tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
-                hvd.callbacks.BroadcastGlobalVariablesCallback(0),
             ])
+            if hvd: callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
         #history = model.fit(trn_dataLoader.images, trn_dataLoader.labels, sample_weight=trn_dataLoader.weights,
         #                    validation_data = (val_dataLoader.images, val_dataLoader.labels, val_dataLoader.weights),
         #                    epochs=epochs, batch_size=args.batch,
