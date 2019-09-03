@@ -9,7 +9,7 @@ import csv
 import tensorflow as tf
 
 try:
-    import horovod.keras as hvd
+    import horovod.tensorflow.keras as hvd
 except:
     hvd = None
 
@@ -39,9 +39,13 @@ epochs = args.epoch
 
 hvd_rank, hvd_size = 0, 1
 if hvd:
+    import math
+    print("Hovorod is available. (%d/%d)", (hvd_rank, hvd_size))
     hvd.init()
     hvd_rank = hvd.rank()
     epochs = int(math.ceil(nthreads / hvd_size))
+else:
+    exit()
 
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
 weightFile = os.path.join(args.outdir, 'weight_%d.h5' % hvd_rank)
@@ -78,8 +82,8 @@ sysstat.update(annotation="start_logging")
 sys.path.append("../python")
 from HEPCNN.keras_dataGenerator import HEPCNNDataGenerator as DataLoader
 trn_dataLoader = DataLoader(args.trndata, args.batch, shuffle=False, nEvent=args.ntrain, syslogger=sysstat)
-#val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
-val_dataLoader = DataLoader(args.valdata, 1024, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
+val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
+#val_dataLoader = DataLoader(args.valdata, 1024, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
 
 ## Build model
 from HEPCNN.keras_model_default import MyModel
@@ -105,12 +109,12 @@ if not os.path.exists(weightFile):
         ]
         if not args.noEarlyStopping:
             callbacks.append(tf.keras.callbacks.EarlyStopping(verbose=True, patience=20, monitor='val_loss'))
+        if hvd: callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
         if hvd_rank == 0:
             callbacks.extend([
                 tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
                 tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
             ])
-            if hvd: callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
         #history = model.fit(trn_dataLoader.images, trn_dataLoader.labels, sample_weight=trn_dataLoader.weights,
         #                    validation_data = (val_dataLoader.images, val_dataLoader.labels, val_dataLoader.weights),
         #                    epochs=epochs, batch_size=args.batch,
