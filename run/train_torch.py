@@ -94,7 +94,7 @@ if hvd:
 else:
     trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=False, **kwargs)
     #valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=False, **kwargs)
-    valLoader = DataLoader(valDataset, batch_size=1024, shuffle=False, **kwargs)
+    valLoader = DataLoader(valDataset, batch_size=512, shuffle=False, **kwargs)
 
 ## Build model
 from HEPCNN.torch_model_default import MyModel
