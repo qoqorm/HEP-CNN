@@ -44,8 +44,8 @@ if len(metrics) > 1:
             for ii in range(64):
                 if not os.path.exists('%s/batchHistory_%d.csv' % (d, ii)): continue
                 usage = pd.read_csv('%s/batchHistory_%d.csv' % (d, ii))
-                #usage2 = pd.read_csv('%s/usageHistory_%d.csv' % (d, ii))
-                #usage = usage.append(usage2, ignore_index=True)
+                usage2 = pd.read_csv('%s/usageHistory_%d.csv' % (d, ii))
+                usage = usage.append(usage2, ignore_index=True)
 
                 usage['Datetime'] = pd.to_datetime(usage['Datetime'], format='%Y-%m-%d %H-%M-%S')
                 usage = usage.sort_values(['Datetime'])
@@ -83,8 +83,8 @@ if len(dirs) > 1:
             for ii in range(64):
                 if not os.path.exists('%s/batchHistory_%d.csv' % (d, ii)): continue
                 usage = pd.read_csv('%s/batchHistory_%d.csv' % (d, ii))
-                #usage2 = pd.read_csv('%s/usageHistory_%d.csv' % (d, ii))
-                #usage = usage.append(usage2, ignore_index=True)
+                usage2 = pd.read_csv('%s/usageHistory_%d.csv' % (d, ii))
+                usage = usage.append(usage2, ignore_index=True)
 
                 usage['Datetime'] = pd.to_datetime(usage['Datetime'], format='%Y-%m-%d %H-%M-%S')
                 usage = usage.sort_values(['Datetime'])
