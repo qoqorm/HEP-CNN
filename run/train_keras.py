@@ -13,7 +13,7 @@ try:
 except:
     hvd = None
 
-nthreads = 16 #int(os.popen('nproc').read()) ## nproc takes allowed # of processes. Returns OMP_NUM_THREADS if set
+nthreads = int(os.popen('nproc').read()) ## nproc takes allowed # of processes. Returns OMP_NUM_THREADS if set
 config = tf.ConfigProto()
 ## From Nurion user guide, intra=1, inter=n_physical_core
 config.intra_op_parallelism_threads = 1 ## for independent graph computations
@@ -82,8 +82,8 @@ sysstat.update(annotation="start_logging")
 sys.path.append("../python")
 from HEPCNN.keras_dataGenerator import HEPCNNDataGenerator as DataLoader
 trn_dataLoader = DataLoader(args.trndata, args.batch, shuffle=False, nEvent=args.ntrain, syslogger=sysstat)
-#val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
-val_dataLoader = DataLoader(args.valdata, 1024, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
+val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
+#val_dataLoader = DataLoader(args.valdata, 1024, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
 
 ## Build model
 from HEPCNN.keras_model_default import MyModel
@@ -109,12 +109,12 @@ if not os.path.exists(weightFile):
         ]
         if not args.noEarlyStopping:
             callbacks.append(tf.keras.callbacks.EarlyStopping(verbose=True, patience=20, monitor='val_loss'))
+        if hvd: callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
         if hvd_rank == 0:
             callbacks.extend([
                 tf.keras.callbacks.TensorBoard(log_dir=args.outdir, histogram_freq=1, write_graph=True, write_images=True),
                 tf.keras.callbacks.ModelCheckpoint(weightFile, monitor='val_loss', verbose=True, save_best_only=True),
             ])
-            if hvd: callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
         #history = model.fit(trn_dataLoader.images, trn_dataLoader.labels, sample_weight=trn_dataLoader.weights,
         #                    validation_data = (val_dataLoader.images, val_dataLoader.labels, val_dataLoader.weights),
         #                    epochs=epochs, batch_size=args.batch,
