@@ -35,15 +35,14 @@ parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Lear
 parser.add_argument('--noEarlyStopping', action='store_true', help='do not apply Early Stopping')
 
 args = parser.parse_args()
-epochs = args.epoch
 
 hvd_rank, hvd_size = 0, 1
 if hvd:
     import math
-    print("Hovorod is available. (%d/%d)", (hvd_rank, hvd_size))
     hvd.init()
     hvd_rank = hvd.rank()
-    epochs = int(math.ceil(nthreads / hvd_size))
+    hvd_size = hvd.size()
+    print("Horovod is available. (rank=%d size=%d)" % (hvd_rank, hvd_size))
 else:
     exit()
 
@@ -84,6 +83,8 @@ from HEPCNN.keras_dataGenerator import HEPCNNDataGenerator as DataLoader
 trn_dataLoader = DataLoader(args.trndata, args.batch, shuffle=False, nEvent=args.ntrain, syslogger=sysstat)
 val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
 #val_dataLoader = DataLoader(args.valdata, 1024, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
+steps_per_epoch  = len(trn_dataLoader)//hvd_size
+validation_steps = len(val_dataLoader)//hvd_size*3
 
 ## Build model
 from HEPCNN.keras_model_default import MyModel
@@ -117,7 +118,7 @@ if not os.path.exists(weightFile):
             ])
         #history = model.fit(trn_dataLoader.images, trn_dataLoader.labels, sample_weight=trn_dataLoader.weights,
         #                    validation_data = (val_dataLoader.images, val_dataLoader.labels, val_dataLoader.weights),
-        #                    epochs=epochs, batch_size=args.batch,
+        #                    epochs=args.epoch, batch_size=args.batch,
         #                    verbose=1,
         #                    shuffle=False,
         #                    #shuffle='batch',
@@ -125,7 +126,8 @@ if not os.path.exists(weightFile):
         #                    callbacks = callbacks)
         history = model.fit_generator(generator=trn_dataLoader,
                                       validation_data = val_dataLoader,
-                                      epochs=epochs, verbose=1 if hvd_rank == 0 else 0, workers=4,# use_multiprocessing=True,
+                                      steps_per_epoch = steps_per_epoch, validation_steps = validation_steps,
+                                      epochs=args.epoch, verbose=1 if hvd_rank == 0 else 0, workers=4,# use_multiprocessing=True,
                                       callbacks = callbacks)
         sysstat.update(annotation="train_end")
 
