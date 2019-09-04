@@ -43,6 +43,7 @@ maxTime = 0
 
 data = OrderedDict()
 for d in dirs:
+    print(d)
     for metric in metrics:
         if metric not in data: data[metric] = []
 

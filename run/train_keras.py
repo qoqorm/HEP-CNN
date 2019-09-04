@@ -42,7 +42,7 @@ if hvd:
     hvd.init()
     hvd_rank = hvd.rank()
     hvd_size = hvd.size()
-    print("Hovorod is available. (rank=%d size=%d)" % (hvd_rank, hvd_size))
+    print("Horovod is available. (rank=%d size=%d)" % (hvd_rank, hvd_size))
 else:
     exit()
 
@@ -83,8 +83,8 @@ from HEPCNN.keras_dataGenerator import HEPCNNDataGenerator as DataLoader
 trn_dataLoader = DataLoader(args.trndata, args.batch, shuffle=False, nEvent=args.ntrain, syslogger=sysstat)
 val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
 #val_dataLoader = DataLoader(args.valdata, 1024, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
-steps_per_epoch  = len(trn_dataLoader)/hvd_size
-validation_steps = len(val_dataLoader)/hvd_size*3
+steps_per_epoch  = len(trn_dataLoader)//hvd_size
+validation_steps = len(val_dataLoader)//hvd_size*3
 
 ## Build model
 from HEPCNN.keras_model_default import MyModel
