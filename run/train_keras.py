@@ -39,9 +39,10 @@ args = parser.parse_args()
 hvd_rank, hvd_size = 0, 1
 if hvd:
     import math
-    print("Hovorod is available. (rank=%d size=%d)" % (hvd_rank, hvd_size))
     hvd.init()
     hvd_rank = hvd.rank()
+    hvd_size = hvd.size()
+    print("Hovorod is available. (rank=%d size=%d)" % (hvd_rank, hvd_size))
 else:
     exit()
 
