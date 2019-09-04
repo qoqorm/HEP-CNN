@@ -4,27 +4,32 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import sys, os
 import argparse
+from collections import OrderedDict
 
 metrics_all = ['CPU', 'RSS', 'VMSize', 'Read', 'Write']
 metrics_opts = {'CPU':('%', 1), 'RSS':('GB',1e9), 'VMSize':('GB',1e9), 'Read':('MB',1e6), 'Write':('MB',1e6)}
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-m', '--metrics', type=str, nargs='*', action='append', default=[['CPU']], choices=metrics_all+["all"],
+parser.add_argument('-m', '--metrics', type=str, action='store', default='CPU',
                     help="List of metrics (CPU,RSS,VMSize,Read,Write,all)")
-parser.add_argument('-d', '--dirs', type=str, nargs='+', action='append', default=[],
+parser.add_argument('dirs', type=str, nargs='+', action='store',
                     help="Directories with log messages")
+parser.add_argument('-a', '--annotation', action='store_true', default=False,
+                    help="Add annotations")
 args = parser.parse_args()
 
 metrics = []
-for x in args.metrics: metrics.extend(x)
-metrics = list(set(metrics))
-if 'all' in metrics: metrics = metrics_all
+for metric in args.metrics.split(','):
+    if metric == 'all':
+        metrics = metrics_all
+        break
+    if metric not in metrics_all: continue
+    metrics.append(metric)
 
 dirs = []
-for dd in args.dirs:
-    for d in dd:
-        if not os.path.exists(d+'/batchHistory_0.csv'): continue
-        dirs.append(d)
+for d in args.dirs:
+    if not os.path.exists(d+'/batchHistory_0.csv'): continue
+    dirs.append(d)
 
 cols = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan']
 
@@ -33,44 +38,32 @@ plt.rcParams['lines.markersize'] = 5
 
 plt.rcParams['figure.figsize'] = (7, len(metrics)*2)
 maxTime = 0
-if len(metrics) > 1:
-    for d in dirs:
-        for i, metric in enumerate(metrics):
-            hostInfo, pars = d.split('/',1)
-            hostAlias, hostSpec = hostInfo.replace('perf_', '').split('_',1)
 
-            ax = plt.subplot(len(metrics), 1, i+1)
+data = OrderedDict()
+for d in dirs:
+    for metric in metrics:
+        if metric not in data: data[metric] = []
 
-            for ii in range(64):
-                if not os.path.exists('%s/batchHistory_%d.csv' % (d, ii)): continue
-                usage = pd.read_csv('%s/batchHistory_%d.csv' % (d, ii))
-                usage2 = pd.read_csv('%s/usageHistory_%d.csv' % (d, ii))
-                usage = usage.append(usage2, ignore_index=True)
+        data[metric].append([])
 
-                usage['Datetime'] = pd.to_datetime(usage['Datetime'], format='%Y-%m-%d %H-%M-%S')
-                usage = usage.sort_values(['Datetime'])
-                beginTime = min(usage['Datetime'])
+        for ii in range(64):
+            if not os.path.exists('%s/batchHistory_%d.csv' % (d, ii)): continue
+            usage1 = pd.read_csv('%s/batchHistory_%d.csv' % (d, ii))
+            usage2 = pd.read_csv('%s/usageHistory_%d.csv' % (d, ii))
+            usage = usage1.append(usage2, ignore_index=True)
 
-                usage['time'] = (usage['Datetime']-beginTime).dt.total_seconds()
-                maxTime = max(max(usage['time']), maxTime)
-                unit, scale = metrics_opts[metric]
+            usage['Datetime'] = pd.to_datetime(usage['Datetime'], format='%Y-%m-%d %H-%M-%S')
+            usage = usage.sort_values(['Datetime'])
+            beginTime = min(usage['Datetime'])
 
-                plt.plot(usage['time'], usage[metric]/scale, '.-', label=('rank%d'%ii))#, c=cols[i], label=(pars.replace('__', ' ')))
-            plt.grid(linestyle=':')
-            if i == len(metrics)-1: plt.xlabel('time')
-            plt.ylabel('%s(%s)' % (metric, unit))
-            #ax.set_xlim([0, 1000])
-            #plt.yscale('log')
-            #if metric == 'CPU':
-            #    ax.set_ylim([0, 6000])
+            usage['time'] = (usage['Datetime']-beginTime).dt.total_seconds()
+            maxTime = max(max(usage['time']), maxTime)
+            scale = metrics_opts[metric][1]
+            usage[metric] /= scale
 
-            plt.legend()
-        plt.tight_layout()
+            data[metric][-1].append(usage)
 
-        plt.savefig('%s/%s.png' % (d, metric))
-        plt.show()
-
-if len(dirs) > 1:
+if len(dirs) > 1 or len(metrics) == 1:
     plt.rcParams['figure.figsize'] = (7, len(dirs)*2)
     for metric in metrics:
         for i, d in enumerate(dirs):
@@ -78,33 +71,61 @@ if len(dirs) > 1:
             hostAlias, hostSpec = hostInfo.replace('perf_', '').split('_',1)
 
             ax = plt.subplot(len(dirs), 1, i+1)
+            if maxTime > 0: ax.set_xlim([0, maxTime*1.1])
             plt.title(pars.replace('__', ' '))
 
-            for ii in range(64):
-                if not os.path.exists('%s/batchHistory_%d.csv' % (d, ii)): continue
-                usage = pd.read_csv('%s/batchHistory_%d.csv' % (d, ii))
-                usage2 = pd.read_csv('%s/usageHistory_%d.csv' % (d, ii))
-                usage = usage.append(usage2, ignore_index=True)
+            for usage in data[metric][i]:
+                plt.plot(usage['time'], usage[metric], '.-')
 
-                usage['Datetime'] = pd.to_datetime(usage['Datetime'], format='%Y-%m-%d %H-%M-%S')
-                usage = usage.sort_values(['Datetime'])
-                beginTime = min(usage['Datetime'])
+                if args.annotation:
+                    for t, m, s in zip(usage['time'], usage[metric], usage['Annotation']):
+                        if type(s) != str: continue
+                        s = ' '.join(s.split()[:-1]) if len(s.split()) > 2 else s
+                        plt.text(t, m, s)
 
-                usage['time'] = (usage['Datetime']-beginTime).dt.total_seconds()
-                unit, scale = metrics_opts[metric]
-
-                #plt.plot(usage['time'], usage[metric]/scale, '.-', c=cols[i], label=(pars.replace('__', ' ')))
-                plt.plot(usage['time'], usage[metric]/scale, '.-', label=('rank%d'%ii))
             plt.grid(linestyle=':')
             if i == len(dirs)-1: plt.xlabel('time')
+            unit = metrics_opts[metric][0]
             plt.ylabel('%s(%s)' % (metric, unit))
-            if maxTime > 0: ax.set_xlim([0, maxTime])
+
+            #plt.legend()
+
+        plt.tight_layout()
+        plt.savefig('%s.png' % (metric))
+        plt.show()
+        #    ax.set_ylim([0, 6000])
+
+if len(metrics) > 1:
+    plt.rcParams['figure.figsize'] = (7, len(metrics)*2)
+    for j, d in enumerate(dirs):
+        for i, metric in enumerate(metrics):
+            hostInfo, pars = d.split('/',1)
+            hostAlias, hostSpec = hostInfo.replace('perf_', '').split('_',1)
+
+            ax = plt.subplot(len(metrics), 1, i+1)
+            #if maxTime > 0: ax.set_xlim([0, maxTime*1.1])
+            #ax.set_xlim([0, 3000])
+
+            for usage in data[metric][j]:
+                plt.plot(usage['time'], usage[metric], '.-')#, label=('rank%d'%ii))#, c=cols[i], label=(pars.replace('__', ' ')))
+
+                if args.annotation:
+                    for t, m, s in zip(usage['time'], usage[metric], usage['Annotation']):
+                        if type(s) != str: continue
+                        s = ' '.join(s.split()[:-1]) if len(s.split()) > 2 else s
+                        plt.text(t, m, s)
+
+            plt.grid(linestyle=':')
+            if i == len(metrics)-1: plt.xlabel('time')
+            unit = metrics_opts[metric][0]
+            plt.ylabel('%s(%s)' % (metric, unit))
+
             #plt.yscale('log')
             #if metric == 'CPU':
             #    ax.set_ylim([0, 6000])
+            #plt.legend()
 
-            plt.legend()
         plt.tight_layout()
-
-        plt.savefig('%s.png' % (metric))
+        plt.savefig('%s/%s.png' % (d, metric))
         plt.show()
+
