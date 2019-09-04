@@ -33,8 +33,10 @@ for d in args.dirs:
 
 cols = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan']
 
-plt.rcParams['lines.linewidth'] = 1
-plt.rcParams['lines.markersize'] = 5
+#plt.rcParams['lines.linewidth'] = 1
+#plt.rcParams['lines.markersize'] = 5
+plt.rcParams['lines.linewidth'] = 0.5
+plt.rcParams['lines.markersize'] = 2
 
 plt.rcParams['figure.figsize'] = (7, len(metrics)*2)
 maxTime = 0
@@ -75,7 +77,7 @@ if len(dirs) > 1 or len(metrics) == 1:
             plt.title(pars.replace('__', ' '))
 
             for usage in data[metric][i]:
-                plt.plot(usage['time'], usage[metric], '.-')
+                plt.plot(usage['time'], usage[metric], '.-', alpha=0.5)
 
                 if args.annotation:
                     for t, m, s in zip(usage['time'], usage[metric], usage['Annotation']):
@@ -107,7 +109,7 @@ if len(metrics) > 1:
             #ax.set_xlim([0, 3000])
 
             for usage in data[metric][j]:
-                plt.plot(usage['time'], usage[metric], '.-')#, label=('rank%d'%ii))#, c=cols[i], label=(pars.replace('__', ' ')))
+                plt.plot(usage['time'], usage[metric], '.-', alpha=0.5)#, label=('rank%d'%ii))#, c=cols[i], label=(pars.replace('__', ' ')))
 
                 if args.annotation:
                     for t, m, s in zip(usage['time'], usage[metric], usage['Annotation']):
