@@ -13,6 +13,7 @@ parser.add_argument('--format', action='store', choices=('NHWC', 'NCHW'), defaul
 parser.add_argument('--circpad', action='store', type=int, default=0, help='padding size for the circular padding (0 for no-padding)')
 parser.add_argument('--logscale', action='store', type=bool, default=False, help='apply log scaling to images')
 parser.add_argument('-c', '--chunk', action='store', type=int, default=1024, help='chunk size')
+parser.add_argument('--nocompress', dest='nocompress', action='store_true', default=False, help='disable gzip compression')
 args = parser.parse_args()
 
 srcFileName = args.input
@@ -78,8 +79,8 @@ chunkSize = min(args.chunk, nEvent)
 if outFileName.endswith('.h5'):
     with h5py.File(outFileName, 'w', libver='latest') as outFile:
         g = outFile.create_group('all_events')
-        g.create_dataset('images'+args.suffix, data=image,
-                         chunks=((chunkSize,)+image.shape[1:]), compression='gzip', compression_opts=9)
+        kwargs = {} if args.nocompress else {'compression':'gzip', 'compression_opts':9}
+        g.create_dataset('images'+args.suffix, data=image, chunks=((chunkSize,)+image.shape[1:]), **kwargs)
         g.create_dataset('labels'+args.suffix, data=labels, chunks=(chunkSize,))
         g.create_dataset('weights'+args.suffix, data=weights, chunks=(chunkSize,))
         outFile.swmr_mode = True
