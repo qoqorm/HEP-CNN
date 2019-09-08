@@ -49,12 +49,12 @@ else:
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
 weightFile = os.path.join(args.outdir, 'weight_%d.h5' % hvd_rank)
 predFile = os.path.join(args.outdir, 'predict_%d.npy' % hvd_rank)
-historyFile = os.path.join(args.outdir, 'history_%d.csv' % hvd_rank)
-batchHistoryFile = os.path.join(args.outdir, 'batchHistory_%d.csv' % hvd_rank)
-usageHistoryFile = os.path.join(args.outdir, 'usageHistory_%d.csv' % hvd_rank)
+trainingFile = os.path.join(args.outdir, 'training_%d.csv' % hvd_rank)
+resourceByCPFile = os.path.join(args.outdir, 'resourceByCP_%d.csv' % hvd_rank)
+resourceByTimeFile = os.path.join(args.outdir, 'resourceByTime_%d.csv' % hvd_rank)
 
 proc = subprocess.Popen(['python', '../scripts/monitor_proc.py', '-t', '1',
-                        '-o', usageHistoryFile, '%d' % os.getpid()],
+                        '-o', resourceByTimeFile, '%d' % os.getpid()],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 import time
@@ -70,7 +70,7 @@ sys.path.append("../scripts")
 from monitor_proc import SysStat
 class SysStatHistory(tf.keras.callbacks.Callback, SysStat):
     def __init__(self, pid):
-        SysStat.__init__(self, pid, fileName=batchHistoryFile)
+        SysStat.__init__(self, pid, fileName=resourceByCPFile)
     def on_epoch_end(self, batch, logs):
         self.update(annotation='epoch_end')
     def on_batch_end(self, batch, logs):
@@ -133,7 +133,7 @@ if not os.path.exists(weightFile):
         sysstat.update(annotation="train_end")
 
         history.history['time'] = timeHistory.times[:]
-        with open(historyFile, 'w') as f:
+        with open(trainingFile, 'w') as f:
             writer = csv.writer(f)
             keys = history.history.keys()
             writer.writerow(keys)

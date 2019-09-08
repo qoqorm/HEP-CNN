@@ -28,7 +28,7 @@ for metric in args.metrics.split(','):
 
 dirs = []
 for d in args.dirs:
-    if not os.path.exists(d+'/batchHistory_0.csv'): continue
+    if not os.path.exists(d+'/resourceByCP_0.csv'): continue
     dirs.append(d)
 
 cols = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan']
@@ -50,9 +50,9 @@ for d in dirs:
         data[metric].append([])
 
         for ii in range(64):
-            if not os.path.exists('%s/batchHistory_%d.csv' % (d, ii)): continue
-            usage1 = pd.read_csv('%s/batchHistory_%d.csv' % (d, ii))
-            usage2 = pd.read_csv('%s/usageHistory_%d.csv' % (d, ii))
+            if not os.path.exists('%s/resourceByCP_%d.csv' % (d, ii)): continue
+            usage1 = pd.read_csv('%s/resourceByCP_%d.csv' % (d, ii))
+            usage2 = pd.read_csv('%s/resourceByTime_%d.csv' % (d, ii))
             usage = usage1.append(usage2, ignore_index=True)
 
             usage['Datetime'] = pd.to_datetime(usage['Datetime'], format='%Y-%m-%d %H-%M-%S')
