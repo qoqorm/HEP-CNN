@@ -5,6 +5,7 @@ import argparse
 import sys, os
 import subprocess
 import csv
+import math
 
 import torch
 import torch.nn as nn
@@ -17,8 +18,8 @@ except:
     hvd = None
 
 nthreads = int(os.popen('nproc').read()) ## nproc takes allowed # of processes. Returns OMP_NUM_THREADS if set
-#num_workers = os.cpu_count()
-#torch.omp_set_num_threads(nthreads)
+print("NTHREADS=", nthreads, "CPU_COUNT=", os.cpu_count())
+torch.set_num_threads(nthreads)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', action='store', type=int, default=50, help='Number of epochs')
@@ -37,6 +38,8 @@ hvd_rank, hvd_size = 0, 1
 if hvd:
     hvd.init()
     hvd_rank = hvd.rank()
+    hvd_size = hvd.size()
+    print("Horovod is available. (rank=%d size=%d)" % (hvd_rank, hvd_size))
     #torch.manual_seed(args.seed)
     #torch.cuda.set_device(hvd.local_rank())
 
@@ -76,19 +79,14 @@ sysstat.update(annotation="open_val")
 valDataset = MyDataset(args.valdata, args.ntest)
 sysstat.update(annotation="read_val")
 
-#if torch.cuda.is_available():
-#    num_workers = 1
-num_workers = min(4, nthreads)
-torch.set_num_threads(nthreads)
-
-kwargs = {'num_workers':4}
+kwargs = {'num_workers':min(4, nthreads)}
 if torch.cuda.is_available() and hvd:
     kwargs['num_workers'] = 1
     kwargs['pin_memory'] = True
 
 if hvd:
-    trnSampler = torch.utils.data.distributed.DistributedSampler(trnDataset, num_replicas=hvd.size(), rank=hvd_rank)
-    valSampler = torch.utils.data.distributed.DistributedSampler(valDataset, num_replicas=hvd.size(), rank=hvd_rank)
+    trnSampler = torch.utils.data.distributed.DistributedSampler(trnDataset, num_replicas=hvd_size, rank=hvd_rank)
+    valSampler = torch.utils.data.distributed.DistributedSampler(valDataset, num_replicas=hvd_size, rank=hvd_rank)
     trnLoader = DataLoader(trnDataset, batch_size=args.batch, sampler=trnSampler, **kwargs)
     valLoader = DataLoader(valDataset, batch_size=args.batch, sampler=valSampler, **kwargs)
 else:
@@ -100,20 +98,16 @@ else:
 from HEPCNN.torch_model_default import MyModel
 model = MyModel(trnDataset.width, trnDataset.height)
 optm = optim.Adam(model.parameters(), lr=args.lr*hvd_size)
-#optimizer = optim.SGD(model.parameters(), lr=args.lr * hvd.size(),
-#                      momentum=args.momentum)
-crit = torch.nn.BCELoss()
 
 device = 'cpu'
 if torch.cuda.is_available():
     model = model.cuda()
-    crit = crit.cuda()
     device = 'cuda'
 
 if hvd:
     hvd.broadcast_parameters(model.state_dict(), root_rank=0)
     hvd.broadcast_optimizer_state(optm, root_rank=0)
-    compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+    compression = hvd.Compression.fp16 #if args.fp16_allreduce else hvd.Compression.none
     optm = hvd.DistributedOptimizer(optm,
                                     named_parameters=model.named_parameters(),
                                     compression=compression)
@@ -140,11 +134,12 @@ if not os.path.exists(weightFile):
 
             model.train()
             trn_loss, trn_acc = 0., 0.
-            for i, (data, label, weight) in enumerate(tqdm(trnLoader)):
+            for i, (data, label, weight) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
                 data = data.float().to(device)
-                weight = weight.float().to(device)
+                weight = weight.float()
 
                 pred = model(data).to('cpu').float()
+                crit = torch.nn.BCELoss(weight=weight)
                 loss = crit(pred.view(-1), label.float())
                 optm.zero_grad()
                 loss.backward()
@@ -161,9 +156,10 @@ if not os.path.exists(weightFile):
             val_loss, val_acc = 0., 0.
             for i, (data, label, weight) in enumerate(tqdm(valLoader)):
                 data = data.float().to(device)
-                weight = weight.float().to(device)
+                weight = weight.float()
 
                 pred = model(data).to('cpu').float()
+                crit = torch.nn.BCELoss(weight=weight)
                 loss = crit(pred.view(-1), label.float())
 
                 val_loss += loss.item()
