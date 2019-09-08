@@ -102,12 +102,10 @@ model = MyModel(trnDataset.width, trnDataset.height)
 optm = optim.Adam(model.parameters(), lr=args.lr*hvd_size)
 #optimizer = optim.SGD(model.parameters(), lr=args.lr * hvd.size(),
 #                      momentum=args.momentum)
-crit = torch.nn.BCELoss()
 
 device = 'cpu'
 if torch.cuda.is_available():
     model = model.cuda()
-    crit = crit.cuda()
     device = 'cuda'
 
 if hvd:
@@ -142,9 +140,10 @@ if not os.path.exists(weightFile):
             trn_loss, trn_acc = 0., 0.
             for i, (data, label, weight) in enumerate(tqdm(trnLoader)):
                 data = data.float().to(device)
-                weight = weight.float().to(device)
+                weight = weight.float()
 
                 pred = model(data).to('cpu').float()
+                crit = torch.nn.BCELoss(weight=weight)
                 loss = crit(pred.view(-1), label.float())
                 optm.zero_grad()
                 loss.backward()
@@ -161,9 +160,10 @@ if not os.path.exists(weightFile):
             val_loss, val_acc = 0., 0.
             for i, (data, label, weight) in enumerate(tqdm(valLoader)):
                 data = data.float().to(device)
-                weight = weight.float().to(device)
+                weight = weight.float()
 
                 pred = model(data).to('cpu').float()
+                crit = torch.nn.BCELoss(weight=weight)
                 loss = crit(pred.view(-1), label.float())
 
                 val_loss += loss.item()
