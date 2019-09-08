@@ -5,6 +5,7 @@ import argparse
 import sys, os
 import subprocess
 import csv
+import math
 
 import tensorflow as tf
 
@@ -38,7 +39,6 @@ args = parser.parse_args()
 
 hvd_rank, hvd_size = 0, 1
 if hvd:
-    import math
     hvd.init()
     hvd_rank = hvd.rank()
     hvd_size = hvd.size()
@@ -84,7 +84,8 @@ trn_dataLoader = DataLoader(args.trndata, args.batch, shuffle=False, nEvent=args
 val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
 #val_dataLoader = DataLoader(args.valdata, 1024, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
 steps_per_epoch  = len(trn_dataLoader)//hvd_size
-validation_steps = len(val_dataLoader)//hvd_size*3
+validation_steps = len(val_dataLoader)//hvd_size
+if hvd_size > 1: validation_steps *= 3
 
 ## Build model
 from HEPCNN.keras_model_default import MyModel
