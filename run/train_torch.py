@@ -134,7 +134,7 @@ if not os.path.exists(weightFile):
 
             model.train()
             trn_loss, trn_acc = 0., 0.
-            for i, (data, label, weight) in enumerate(tqdm(trnLoader)):
+            for i, (data, label, weight) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
                 data = data.float().to(device)
                 weight = weight.float()
 
