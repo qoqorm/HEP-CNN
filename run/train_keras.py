@@ -15,14 +15,15 @@ except:
     hvd = None
 
 nthreads = int(os.popen('nproc').read()) ## nproc takes allowed # of processes. Returns OMP_NUM_THREADS if set
-config = tf.ConfigProto()
+print("NTHREADS=", nthreads, "CPU_COUNT=", os.cpu_count())
+config = tf.compat.v1.ConfigProto()
 ## From Nurion user guide, intra=1, inter=n_physical_core
 config.intra_op_parallelism_threads = 1 ## for independent graph computations
 config.inter_op_parallelism_threads = nthreads ## for operations which can run in parallel such as matmul or reduction
 ## From TF performance manual page, intra=inter=n_physical_core or n_logical_core
 #config.intra_op_parallelism_threads = nthreads
 #config.inter_op_parallelism_threads = nthreads
-tf.Session(config=config)
+tf.compat.v1.Session(config=config)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', action='store', type=int, default=50, help='Number of epochs')
@@ -43,8 +44,6 @@ if hvd:
     hvd_rank = hvd.rank()
     hvd_size = hvd.size()
     print("Horovod is available. (rank=%d size=%d)" % (hvd_rank, hvd_size))
-else:
-    exit()
 
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
 weightFile = os.path.join(args.outdir, 'weight_%d.h5' % hvd_rank)
@@ -81,8 +80,10 @@ sysstat.update(annotation="start_logging")
 sys.path.append("../python")
 from HEPCNN.keras_dataGenerator import HEPCNNDataGenerator as DataLoader
 trn_dataLoader = DataLoader(args.trndata, args.batch, shuffle=False, nEvent=args.ntrain, syslogger=sysstat)
-val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
-#val_dataLoader = DataLoader(args.valdata, 1024, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
+if hvd:
+    val_dataLoader = DataLoader(args.valdata, args.batch, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
+else:
+    val_dataLoader = DataLoader(args.valdata, 512, shuffle=False, nEvent=args.ntest, syslogger=sysstat)
 steps_per_epoch  = len(trn_dataLoader)//hvd_size
 validation_steps = len(val_dataLoader)//hvd_size
 if hvd_size > 1: validation_steps *= 3
