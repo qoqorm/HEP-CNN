@@ -22,7 +22,8 @@ config.inter_op_parallelism_threads = nthreads ## for operations which can run i
 ## From TF performance manual page, intra=inter=n_physical_core or n_logical_core
 #config.intra_op_parallelism_threads = nthreads
 #config.inter_op_parallelism_threads = nthreads
-tf.Session(config=config)
+sess = tf.Session(config=config)
+tf.keras.set_session(sess)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', action='store', type=int, default=50, help='Number of epochs')
