@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #PBS -V
-#PBS -N hep-cnn-torch
+#PBS -N torch_hepcnn
 #PBS -q normal
 #PBS -W sandbox=PRIVATE
 #PBS -A etc
@@ -29,7 +29,8 @@ export OMP_NUM_THREADS=64
 [ _$MPIPROC == _ ] && MPIPROC=1
 [ _$NTHREAD == _ ] && NTHREAD=8
 [ _$BATCH == _ ] && BATCH=32
-OUTDIR=perf_nurion_KNL/torch_latest_MPIPROC_${MPIPROC}__THREADS_${NTHREAD}__BATCH_${BATCH}
+[ _$SELECT == _ ] && SELECT=1
+OUTDIR=perf_nurion_KNL_torch/SELECT_${SELECT}__MPIPROC_${MPIPROC}__THREADS_${NTHREAD}__BATCH_${BATCH}
 
 [ _$PBS_O_WORKDIR != _ ] && cd $PBS_O_WORKDIR
 [ -d $OUTDIR ] || mkdir -p $OUTDIR
