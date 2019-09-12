@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #PBS -V
-#PBS -N hep-cnn-torch
+#PBS -N torch_hepcnn
 #PBS -q normal
 #PBS -W sandbox=PRIVATE
 #PBS -A etc
@@ -16,7 +16,9 @@ conda activate /scratch/hpcaia02/conda/pytorch_120_nightly
 
 export HDF5_USE_FILE_LOCKING='FALSE'
 export TF_XLA_FLAGS=--tf_xla_cpu_global_jit
-export KMP_AFFINITY=granularity=fine,compact,1,0
+export KMP_AFFINITY=granularity=fine,compact
+#export KMP_AFFINITY=granularity=fine,scatter
+#export KMP_AFFINITY=granularity=fine,balanced
 export KMP_SETTINGS=1
 export CUDA_VISIBLE_DEVICES=""
 
@@ -29,7 +31,8 @@ export OMP_NUM_THREADS=64
 [ _$MPIPROC == _ ] && MPIPROC=1
 [ _$NTHREAD == _ ] && NTHREAD=8
 [ _$BATCH == _ ] && BATCH=32
-OUTDIR=perf_nurion_KNL/torch_latest_MPIPROC_${MPIPROC}__THREADS_${NTHREAD}__BATCH_${BATCH}
+[ _$SELECT == _ ] && SELECT=1
+OUTDIR=perf_nurion_KNL_torch/compact_SELECT_${SELECT}__MPIPROC_${MPIPROC}__THREADS_${NTHREAD}__BATCH_${BATCH}
 
 [ _$PBS_O_WORKDIR != _ ] && cd $PBS_O_WORKDIR
 [ -d $OUTDIR ] || mkdir -p $OUTDIR

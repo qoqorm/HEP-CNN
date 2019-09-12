@@ -82,7 +82,7 @@ sysstat.update(annotation="read_val")
 kwargs = {'num_workers':min(4, nthreads)}
 if torch.cuda.is_available() and hvd:
     kwargs['num_workers'] = 1
-    kwargs['pin_memory'] = True
+kwargs['pin_memory'] = True
 
 if hvd:
     trnSampler = torch.utils.data.distributed.DistributedSampler(trnDataset, num_replicas=hvd_size, rank=hvd_rank)
@@ -97,7 +97,8 @@ else:
 ## Build model
 from HEPCNN.torch_model_default import MyModel
 model = MyModel(trnDataset.width, trnDataset.height)
-optm = optim.Adam(model.parameters(), lr=args.lr*hvd_size)
+#optm = optim.Adam(model.parameters(), lr=args.lr*hvd_size)
+optm = optim.Adam(model.parameters(), lr=args.lr)
 
 device = 'cpu'
 if torch.cuda.is_available():
@@ -105,12 +106,13 @@ if torch.cuda.is_available():
     device = 'cuda'
 
 if hvd:
-    hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-    hvd.broadcast_optimizer_state(optm, root_rank=0)
-    compression = hvd.Compression.fp16 #if args.fp16_allreduce else hvd.Compression.none
+    compression = hvd.Compression.none
+    #compression = hvd.Compression.fp16 #if args.fp16_allreduce else hvd.Compression.none
     optm = hvd.DistributedOptimizer(optm,
                                     named_parameters=model.named_parameters(),
-                                    compression=compression)
+                                    compression=compression, backward_passes_per_step=args.batch)
+    hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+    hvd.broadcast_optimizer_state(optm, root_rank=0)
 
 def metric_average(val, name):
     tensor = torch.tensor(val)
@@ -136,12 +138,12 @@ if not os.path.exists(weightFile):
             trn_loss, trn_acc = 0., 0.
             for i, (data, label, weight) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
                 data = data.float().to(device)
-                weight = weight.float()
+                #weight = weight.float()
 
-                pred = model(data).to('cpu').float()
-                crit = torch.nn.BCELoss(weight=weight)
-                loss = crit(pred.view(-1), label.float())
                 optm.zero_grad()
+                pred = model(data).to('cpu').float()
+                crit = torch.nn.BCELoss()#weight=weight)
+                loss = crit(pred.view(-1), label.float())
                 loss.backward()
                 optm.step()
 
@@ -156,10 +158,10 @@ if not os.path.exists(weightFile):
             val_loss, val_acc = 0., 0.
             for i, (data, label, weight) in enumerate(tqdm(valLoader)):
                 data = data.float().to(device)
-                weight = weight.float()
+                #weight = weight.float()
 
                 pred = model(data).to('cpu').float()
-                crit = torch.nn.BCELoss(weight=weight)
+                crit = torch.nn.BCELoss()#weight=weight)
                 loss = crit(pred.view(-1), label.float())
 
                 val_loss += loss.item()
@@ -167,11 +169,10 @@ if not os.path.exists(weightFile):
             val_loss /= len(valSampler) if hvd else (i+1)
             val_acc  /= len(valSampler) if hvd else (i+1)
 
-            if hvd_rank == 0:
-                if hvd: val_acc = metric_average(val_acc, 'avg_accuracy')
-                if bestAcc < val_acc:
-                    bestModel = model.state_dict()
-                    bestAcc = val_acc
+            if hvd: val_acc = metric_average(val_acc, 'avg_accuracy')
+            if bestAcc < val_acc:
+                bestModel = model.state_dict()
+                bestAcc = val_acc
 
             timeHistory.on_epoch_end()
             sysstat.update(annotation='epoch_end')
