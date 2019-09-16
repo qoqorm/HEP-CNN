@@ -17,14 +17,14 @@ except:
 nthreads = int(os.popen('nproc').read()) ## nproc takes allowed # of processes. Returns OMP_NUM_THREADS if set
 print("NTHREADS=", nthreads, "CPU_COUNT=", os.cpu_count())
 config = tf.compat.v1.ConfigProto()
-## From Nurion user guide, intra=1, inter=n_physical_core
-config.intra_op_parallelism_threads = 1 ## for independent graph computations
-config.inter_op_parallelism_threads = nthreads ## for operations which can run in parallel such as matmul or reduction
+## From Nurion user guide, intra=n_physical_core, inter=1, keep inter*intra <= n_phisical_core
+config.intra_op_parallelism_threads = nthreads ## for independent graph computations
+config.inter_op_parallelism_threads = 1 ## for operations which can run in parallel such as matmul or reduction
 ## From TF performance manual page, intra=inter=n_physical_core or n_logical_core
 #config.intra_op_parallelism_threads = nthreads
 #config.inter_op_parallelism_threads = nthreads
 sess = tf.compat.v1.Session(config=config)
-tf.keras.set_session(sess)
+tf.keras.backend.set_session(sess)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', action='store', type=int, default=50, help='Number of epochs')
@@ -71,6 +71,8 @@ from monitor_proc import SysStat
 class SysStatHistory(tf.keras.callbacks.Callback, SysStat):
     def __init__(self, pid):
         SysStat.__init__(self, pid, fileName=resourceByCPFile)
+    def on_epoch_begin(self, batch, logs):
+        self.update(annotation='epoch_begin')
     def on_epoch_end(self, batch, logs):
         self.update(annotation='epoch_end')
     def on_batch_end(self, batch, logs):

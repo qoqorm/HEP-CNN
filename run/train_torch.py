@@ -133,6 +133,7 @@ if not os.path.exists(weightFile):
 
         for epoch in range(args.epoch):
             timeHistory.on_epoch_begin()
+            sysstat.update(annotation='epoch_begin')
 
             model.train()
             trn_loss, trn_acc = 0., 0.
