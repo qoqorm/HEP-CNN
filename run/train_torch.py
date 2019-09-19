@@ -151,12 +151,11 @@ if not os.path.exists(weightFile):
                 if loss is None: loss = l
                 else: loss += l
                 if i % args.batchPerStep == 0 or i+1 == len(trnLoader):
-                    loss.to(device)
                     #loss.backward()
                     optm.step()
 
-                    trn_loss += loss.item()
-                    trn_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
+                trn_loss += l.item()
+                trn_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
 
                 sysstat.update()
             trn_loss /= len(trnSampler) if hvd else (i+1)
