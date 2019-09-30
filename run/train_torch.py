@@ -31,6 +31,7 @@ parser.add_argument('-v', '--valdata', action='store', type=str, required=True, 
 parser.add_argument('-o', '--outdir', action='store', type=str, required=True, help='Path to output directory')
 parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Learning rate')
 parser.add_argument('--noEarlyStopping', action='store_true', help='do not apply Early Stopping')
+parser.add_argument('--batchPerStep', action='store', type=int, default=1, help='Number of batches per step (to emulate all-reduce)')
 
 args = parser.parse_args()
 
@@ -137,6 +138,7 @@ if not os.path.exists(weightFile):
 
             model.train()
             trn_loss, trn_acc = 0., 0.
+            loss = None
             for i, (data, label, weight) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
                 data = data.float().to(device)
                 #weight = weight.float()
@@ -144,11 +146,15 @@ if not os.path.exists(weightFile):
                 optm.zero_grad()
                 pred = model(data).to('cpu').float()
                 crit = torch.nn.BCELoss()#weight=weight)
-                loss = crit(pred.view(-1), label.float())
-                loss.backward()
-                optm.step()
+                l = crit(pred.view(-1), label.float()).to('cpu')
+                l.backward()
+                if loss is None: loss = l
+                else: loss += l
+                if i % args.batchPerStep == 0 or i+1 == len(trnLoader):
+                    #loss.backward()
+                    optm.step()
 
-                trn_loss += loss.item()
+                trn_loss += l.item()
                 trn_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
 
                 sysstat.update()
