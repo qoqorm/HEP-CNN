@@ -16,7 +16,7 @@ conda activate /scratch/hpcaia02/conda/tf_v1.14
 
 export HDF5_USE_FILE_LOCKING='FALSE'
 export TF_XLA_FLAGS=--tf_xla_cpu_global_jit
-export KMP_AFFINITY=granularity=fine,compact,1,0
+export KMP_AFFINITY=granularity=fine,compact
 export KMP_SETTINGS=1
 export CUDA_VISIBLE_DEVICES=""
 

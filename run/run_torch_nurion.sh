@@ -32,13 +32,13 @@ export OMP_NUM_THREADS=64
 [ _$NTHREAD == _ ] && NTHREAD=8
 [ _$BATCH == _ ] && BATCH=32
 [ _$SELECT == _ ] && SELECT=1
-OUTDIR=perf_nurion_KNL_torch/compact_SELECT_${SELECT}__MPIPROC_${MPIPROC}__THREADS_${NTHREAD}__BATCH_${BATCH}
+OUTDIR=perf_nurion_KNL_torch/SELECT_${SELECT}__MPIPROC_${MPIPROC}__THREADS_${NTHREAD}__BATCH_${BATCH}
 
 [ _$PBS_O_WORKDIR != _ ] && cd $PBS_O_WORKDIR
 [ -d $OUTDIR ] || mkdir -p $OUTDIR
 mpirun -np $MPIPROC -env OMP_NUM_THREADS $NTHREAD \
     python train_torch.py -o $OUTDIR \
-           --epoch 5 --batch $BATCH \
-           -t ../data/NERSC_preproc_base/train.h5 -v ../data/NERSC_preproc_base/val.h5 \
+           --epoch 50 --batch $BATCH \
+           -t ../data/NERSC_preproc/train.h5 -v ../data/NERSC_preproc/val.h5 \
 
 
