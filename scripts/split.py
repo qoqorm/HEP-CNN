@@ -1,55 +1,37 @@
+#!/usr/bin/env python
 import h5py
 import numpy as np
 import argparse
 import sys
+import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--input', action='store', type=str, help='input file name', required=True)
+parser.add_argument('-d', '--outdir', action='store', type=str, help='output file name', required=True)
+parser.add_argument('-n', '--nevent', action='store', type=int, default=1024, help='number of events per file')
+parser.add_argument('-c', '--chunk', action='store', type=int, default=1024, help='chunk size')
+parser.add_argument('--nocompress', dest='nocompress', action='store_true', default=False, help='disable gzip compression')
 args = parser.parse_args()
 
-srcFileName = args.input
-outFileName = args.output
+inFile = h5py.File(args.input, 'r')
+suffix = '' if 'all_events/images' in inFile else '_val'
+images  = inFile['all_events/images'+suffix]
+labels  = inFile['all_events/labels'+suffix]
+weights = inFile['all_events/weights'+suffix]
+nEventsTotal = len(images)
+chunkSize = min(args.chunk, args.nevent)
 
-data = h5py.File(srcFileName, 'r')
+if not os.path.exists(args.outdir): os.makedirs(args.outdir)
 
-sub_data = list(data['all_events'].keys())
+for i, begin in enumerate(range(0, nEventsTotal, args.nevent)):
+    end = min(begin+args.nevent, nEventsTotal)
+    outFileName = '%s/%s_%d.h5' % (args.outdir, args.input.rsplit('/', 1)[1].rsplit('.', 1)[0], i)
+    with h5py.File(outFileName, 'w', libver='latest') as outFile:
+        print("Writing output file %s... [%d/%d]" % (outFileName, i+1, nEventsTotal//args.nevent))
+        g = outFile.create_group('all_events')
+        kwargs = {} if args.nocompress else {'compression':'gzip', 'compression_opts':9}
+        g.create_dataset('images'+suffix, data=images[begin:end], chunks=((chunkSize,)+images.shape[1:]), **kwargs)
+        g.create_dataset('labels'+suffix, data=labels[begin:end], chunks=(chunkSize,))
+        g.create_dataset('weights'+suffix, data=weights[begin:end], chunks=(chunkSize,))
+        outFile.swmr_mode = True
 
-
-hist_images = data['all_events']['hist']
-histEM_images = data['all_events']['histEM']
-histtrack_images = data['all_events']['histtrack']
-normwght_images = data['all_events']['normalized_weight']
-passSR_images = data['all_events']['passSR']
-passSR4J_images = data['all_events']['passSR4J']
-passSR5J_images = data['all_events']['passSR5J']
-weight_images = data['all_events']['weight']
-label = data['all_events']['y']
-
-dataSet = [hist_images, histEM_images, histtrack_images, normwght_images, 
-           passSR_images, passSR4J_images, passSR5J_images, weight_images, label]
-
-
-print("Spliting the file...")
-
-cnt = 1
-fileName_Num = 0
-
-data1 = []
-
-for i in dataSet:
-  for matrix in i:
-    fileName = "train_" + str(fileName_Num) + ".h5"
-    groupName = str(i).split('_')[0]
-
-
-    hf = h5py.File(fileName, "w")
-    g1 = hf.create_group('all_events')
-    data1.append(matrix)
-  
-    g1.create_dataset('%s' % groupName, data = data1)
-    hf.close()
-
-    if cnt == 1024:
-      fileName_Num += 1
-      cnt = 0
-    cnt = cnt+1
