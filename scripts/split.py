@@ -30,7 +30,8 @@ for i, begin in enumerate(range(0, nEventsTotal, args.nevent)):
         print("Writing output file %s... [%d/%d]" % (outFileName, i+1, nEventsTotal//args.nevent))
         g = outFile.create_group('all_events')
         kwargs = {} if args.nocompress else {'compression':'gzip', 'compression_opts':9}
-        g.create_dataset('images'+suffix, data=images[begin:end], chunks=((chunkSize,)+images.shape[1:]), **kwargs)
+        image = images[begin:end]
+        g.create_dataset('images'+suffix, data=image, chunks=((chunkSize,)+image.shape[1:]), **kwargs)
         g.create_dataset('labels'+suffix, data=labels[begin:end], chunks=(chunkSize,))
         g.create_dataset('weights'+suffix, data=weights[begin:end], chunks=(chunkSize,))
         outFile.swmr_mode = True
