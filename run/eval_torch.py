@@ -20,45 +20,53 @@ parser.add_argument('-d', '--input', action='store', type=str, required=True, he
 
 args = parser.parse_args()
 
-sys.path.append("../python")
+predFile = args.input+'/prediction.csv'
+import pandas as pd
 
-#from HEPCNN.torch_dataset import HEPCNNSplitedDataset as MyDataset
-from HEPCNN.torch_dataset import HEPCNNDataset as MyDataset
+if not os.path.exists(predFile):
+    sys.path.append("../python")
 
-kwargs = {'num_workers':min(4, nthreads), 'pin_memory':True}
+    #from HEPCNN.torch_dataset import HEPCNNSplitedDataset as MyDataset
+    from HEPCNN.torch_dataset import HEPCNNDataset as MyDataset
 
-testDataset = MyDataset(args.test)
-testLoader = DataLoader(testDataset, batch_size=args.batch, shuffle=False, **kwargs)
+    kwargs = {'num_workers':min(4, nthreads), 'pin_memory':True}
 
-from HEPCNN.torch_model_default import MyModel
-model = MyModel(testDataset.width, testDataset.height)
+    testDataset = MyDataset(args.test)
+    testLoader = DataLoader(testDataset, batch_size=args.batch, shuffle=False, **kwargs)
 
-device = 'cpu'
-if torch.cuda.is_available():
-    model = model.cuda()
-    device = 'cuda'
+    from HEPCNN.torch_model_default import MyModel
+    model = MyModel(testDataset.width, testDataset.height)
 
-from tqdm import tqdm
+    device = 'cpu'
+    if torch.cuda.is_available():
+        model = model.cuda()
+        device = 'cuda'
+
+    from tqdm import tqdm
+    model.load_state_dict(torch.load(args.input+'/weight_0.pkl'))
+    model.eval()
+
+    labels, preds = [], []
+    for i, (data, label, weight) in enumerate(tqdm(testLoader)):
+        data = data.float().to(device)
+        weight = weight.float()
+        pred = model(data).detach().to('cpu').float()
+
+        labels.extend([x.item() for x in label])
+        preds.extend([x.item() for x in pred.view(-1)])
+    df = pd.DataFrame({'label':labels, 'prediction':preds})
+    df.to_csv(predFile, index=False)
+
 from sklearn.metrics import roc_curve, roc_auc_score
-model.load_state_dict(torch.load(args.input+'/weight_0.pkl'))
-model.eval()
-
-labels = []
-preds = []
-for i, (data, label, weight) in enumerate(tqdm(testLoader)):
-    data = data.float().to(device)
-    weight = weight.float()
-    pred = model(data).detach().to('cpu').float()
-
-    labels.extend([x.item() for x in label])
-    preds.extend([x.item() for x in pred.view(-1)])
-
-tpr, fpr, thr = roc_curve(labels, preds, pos_label=0)
-auc = roc_auc_score(labels, preds)
+df = pd.read_csv(predFile)
+tpr, fpr, thr = roc_curve(df['label'], df['prediction'], pos_label=0)
+auc = roc_auc_score(df['label'], df['prediction'])
 
 import matplotlib.pyplot as plt
-plt.plot(tpr, 1-fpr, label='%s %.3f' % (args.input, auc))
-plt.xlabel('True Positive Rate')
-plt.ylabel('1-False Positive Rate')
+plt.plot(fpr, tpr, label='%s %.3f' % (args.input, auc))
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.xlim(0, 0.001)
+plt.ylim(0, 1.000)
 plt.legend()
 plt.show()
