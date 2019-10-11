@@ -32,6 +32,7 @@ parser.add_argument('-o', '--outdir', action='store', type=str, required=True, h
 parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Learning rate')
 parser.add_argument('--noEarlyStopping', action='store_true', help='do not apply Early Stopping')
 parser.add_argument('--batchPerStep', action='store', type=int, default=1, help='Number of batches per step (to emulate all-reduce)')
+parser.add_argument('--shuffle', action='store', type=bool, default=True, help='Shuffle batches for each epochs')
 
 args = parser.parse_args()
 
@@ -70,14 +71,15 @@ sysstat = SysStat(os.getpid(), fileName=resourceByCPFile)
 sysstat.update(annotation="start_loggin")
 
 sys.path.append("../python")
+#from HEPCNN.torch_dataset import HEPCNNSplitedDataset as MyDataset
 from HEPCNN.torch_dataset import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="open_trn")
-trnDataset = MyDataset(args.trndata, args.ntrain)
+trnDataset = MyDataset(args.trndata, args.ntrain, syslogger=sysstat)
 sysstat.update(annotation="read_trn")
 
 sysstat.update(annotation="open_val")
-valDataset = MyDataset(args.valdata, args.ntest)
+valDataset = MyDataset(args.valdata, args.ntest, syslogger=sysstat)
 sysstat.update(annotation="read_val")
 
 kwargs = {'num_workers':min(4, nthreads)}
@@ -88,11 +90,11 @@ kwargs['pin_memory'] = True
 if hvd:
     trnSampler = torch.utils.data.distributed.DistributedSampler(trnDataset, num_replicas=hvd_size, rank=hvd_rank)
     valSampler = torch.utils.data.distributed.DistributedSampler(valDataset, num_replicas=hvd_size, rank=hvd_rank)
-    trnLoader = DataLoader(trnDataset, batch_size=args.batch, sampler=trnSampler, **kwargs)
-    valLoader = DataLoader(valDataset, batch_size=args.batch, sampler=valSampler, **kwargs)
+    trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=args.shuffle, sampler=trnSampler, **kwargs)
+    valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=False, sampler=valSampler, **kwargs)
 else:
-    trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=False, **kwargs)
-    #valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=False, **kwargs)
+    trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=args.shuffle, **kwargs)
+    #valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=args.shuffle, **kwargs)
     valLoader = DataLoader(valDataset, batch_size=512, shuffle=False, **kwargs)
 
 ## Build model
@@ -141,11 +143,11 @@ if not os.path.exists(weightFile):
             loss = None
             for i, (data, label, weight) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
                 data = data.float().to(device)
-                #weight = weight.float()
+                weight = weight.float()
 
                 optm.zero_grad()
                 pred = model(data).to('cpu').float()
-                crit = torch.nn.BCELoss()#weight=weight)
+                crit = torch.nn.BCELoss(weight=weight)
                 l = crit(pred.view(-1), label.float()).to('cpu')
                 l.backward()
                 if loss is None: loss = l
@@ -158,23 +160,23 @@ if not os.path.exists(weightFile):
                 trn_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
 
                 sysstat.update()
-            trn_loss /= len(trnSampler) if hvd else (i+1)
-            trn_acc  /= len(trnSampler) if hvd else (i+1)
+            trn_loss /= len(trnLoader)
+            trn_acc  /= len(trnLoader)
 
             model.eval()
             val_loss, val_acc = 0., 0.
             for i, (data, label, weight) in enumerate(tqdm(valLoader)):
                 data = data.float().to(device)
-                #weight = weight.float()
+                weight = weight.float()
 
                 pred = model(data).to('cpu').float()
-                crit = torch.nn.BCELoss()#weight=weight)
+                crit = torch.nn.BCELoss(weight=weight)
                 loss = crit(pred.view(-1), label.float())
 
                 val_loss += loss.item()
                 val_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
-            val_loss /= len(valSampler) if hvd else (i+1)
-            val_acc  /= len(valSampler) if hvd else (i+1)
+            val_loss /= len(valLoader)
+            val_acc  /= len(valLoader)
 
             if hvd: val_acc = metric_average(val_acc, 'avg_accuracy')
             if bestAcc < val_acc:
@@ -206,9 +208,5 @@ if hvd_rank == 0:
     torch.save(bestModel, weightFile)
 
     model.load_state_dict(torch.load(weightFile))
-    model.eval()
-    #pred = model(valDataset.images.to(device))
-
-    #np.save(predFile, pred.to('cpu').detach().numpy())
     sysstat.update(annotation="saved_model")
 
