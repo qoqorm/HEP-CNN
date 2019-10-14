@@ -101,6 +101,11 @@ else:
 ## Build model
 from HEPCNN.torch_model_default import MyModel
 model = MyModel(trnDataset.width, trnDataset.height)
+device = 'cpu'
+if torch.cuda.is_available():
+    model = model.cuda()
+    device = 'cuda'
+
 if args.optimizer == 'radam':
     from optimizers.RAdam import RAdam
     optm = RAdam(model.parameters(), lr=args.lr)
@@ -114,11 +119,6 @@ elif args.optimizer == 'adam':
 else:
     print("Cannot find optimizer in the list")
     exit()
-
-device = 'cpu'
-if torch.cuda.is_available():
-    model = model.cuda()
-    device = 'cuda'
 
 if hvd:
     compression = hvd.Compression.none
@@ -151,24 +151,22 @@ try:
 
         model.train()
         trn_loss, trn_acc = 0., 0.
-        loss = None
+        optm.zero_grad()
         for i, (data, label, weight) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
             data = data.float().to(device)
-            weight = weight.float()
+            label = label.float().to(device)
+            weight = weight.float().to(device)
 
-            optm.zero_grad()
-            pred = model(data).to('cpu').float()
-            crit = torch.nn.BCELoss(weight=weight)
-            l = crit(pred.view(-1), label.float()).to('cpu')
+            pred = model(data)
+            crit = torch.nn.BCELoss(weight=weight).cuda()
+            l = crit(pred.view(-1), label)
             l.backward()
-            if loss is None: loss = l
-            else: loss += l
             if i % args.batchPerStep == 0 or i+1 == len(trnLoader):
-                #loss.backward()
                 optm.step()
+                optm.zero_grad()
 
             trn_loss += l.item()
-            trn_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
+            trn_acc += accuracy_score(label.to('cpu'), np.where(pred.to('cpu') > 0.5, 1, 0))
 
             sysstat.update()
         trn_loss /= len(trnLoader)
@@ -178,14 +176,15 @@ try:
         val_loss, val_acc = 0., 0.
         for i, (data, label, weight) in enumerate(tqdm(valLoader)):
             data = data.float().to(device)
-            weight = weight.float()
+            label = label.float().to(device)
+            weight = weight.float().to(device)
 
-            pred = model(data).to('cpu').float()
+            pred = model(data)
             crit = torch.nn.BCELoss(weight=weight)
-            loss = crit(pred.view(-1), label.float())
+            loss = crit(pred.view(-1), label)
 
             val_loss += loss.item()
-            val_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
+            val_acc += accuracy_score(label.to('cpu'), np.where(pred.to('cpu') > 0.5, 1, 0))
         val_loss /= len(valLoader)
         val_acc  /= len(valLoader)
 
