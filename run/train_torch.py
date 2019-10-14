@@ -100,8 +100,11 @@ else:
 ## Build model
 from HEPCNN.torch_model_default import MyModel
 model = MyModel(trnDataset.width, trnDataset.height)
-#optm = optim.Adam(model.parameters(), lr=args.lr*hvd_size)
-optm = optim.Adam(model.parameters(), lr=args.lr)
+#optm = optim.Adam(model.parameters(), lr=args.lr)
+from optimizers.RAdam import RAdam
+from optimizers.Lookahead import Lookahead
+optm_base = RAdam(model.parameters(), lr=args.lr)
+optm = Lookahead(optm_base)
 
 device = 'cpu'
 if torch.cuda.is_available():
