@@ -84,8 +84,8 @@ valDataset = MyDataset(args.valdata, args.ntest, syslogger=sysstat)
 sysstat.update(annotation="read_val")
 
 kwargs = {'num_workers':min(4, nthreads)}
-if torch.cuda.is_available() and hvd:
-    kwargs['num_workers'] = 1
+#if torch.cuda.is_available() and hvd:
+#    kwargs['num_workers'] = 1
 kwargs['pin_memory'] = True
 
 if hvd:
@@ -139,86 +139,83 @@ sysstat.update(annotation="modelsetup_done")
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
 bestModel, bestAcc = {}, -1
-if not os.path.exists(weightFile):
-    try:
-        timeHistory = TimeHistory()
-        timeHistory.on_train_begin()
-        sysstat.update(annotation="train_start")
-        history = {'time':[], 'loss':[], 'acc':[], 'val_loss':[], 'val_acc':[]}
+try:
+    timeHistory = TimeHistory()
+    timeHistory.on_train_begin()
+    sysstat.update(annotation="train_start")
+    history = {'time':[], 'loss':[], 'acc':[], 'val_loss':[], 'val_acc':[]}
 
-        for epoch in range(args.epoch):
-            timeHistory.on_epoch_begin()
-            sysstat.update(annotation='epoch_begin')
+    for epoch in range(args.epoch):
+        timeHistory.on_epoch_begin()
+        sysstat.update(annotation='epoch_begin')
 
-            model.train()
-            trn_loss, trn_acc = 0., 0.
-            loss = None
-            for i, (data, label, weight) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
-                data = data.float().to(device)
-                weight = weight.float()
+        model.train()
+        trn_loss, trn_acc = 0., 0.
+        loss = None
+        for i, (data, label, weight) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
+            data = data.float().to(device)
+            weight = weight.float()
 
-                optm.zero_grad()
-                pred = model(data).to('cpu').float()
-                crit = torch.nn.BCELoss(weight=weight)
-                l = crit(pred.view(-1), label.float()).to('cpu')
-                l.backward()
-                if loss is None: loss = l
-                else: loss += l
-                if i % args.batchPerStep == 0 or i+1 == len(trnLoader):
-                    #loss.backward()
-                    optm.step()
+            optm.zero_grad()
+            pred = model(data).to('cpu').float()
+            crit = torch.nn.BCELoss(weight=weight)
+            l = crit(pred.view(-1), label.float()).to('cpu')
+            l.backward()
+            if loss is None: loss = l
+            else: loss += l
+            if i % args.batchPerStep == 0 or i+1 == len(trnLoader):
+                #loss.backward()
+                optm.step()
 
-                trn_loss += l.item()
-                trn_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
+            trn_loss += l.item()
+            trn_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
 
-                sysstat.update()
-            trn_loss /= len(trnLoader)
-            trn_acc  /= len(trnLoader)
+            sysstat.update()
+        trn_loss /= len(trnLoader)
+        trn_acc  /= len(trnLoader)
 
-            model.eval()
-            val_loss, val_acc = 0., 0.
-            for i, (data, label, weight) in enumerate(tqdm(valLoader)):
-                data = data.float().to(device)
-                weight = weight.float()
+        model.eval()
+        val_loss, val_acc = 0., 0.
+        for i, (data, label, weight) in enumerate(tqdm(valLoader)):
+            data = data.float().to(device)
+            weight = weight.float()
 
-                pred = model(data).to('cpu').float()
-                crit = torch.nn.BCELoss(weight=weight)
-                loss = crit(pred.view(-1), label.float())
+            pred = model(data).to('cpu').float()
+            crit = torch.nn.BCELoss(weight=weight)
+            loss = crit(pred.view(-1), label.float())
 
-                val_loss += loss.item()
-                val_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
-            val_loss /= len(valLoader)
-            val_acc  /= len(valLoader)
+            val_loss += loss.item()
+            val_acc += accuracy_score(label, np.where(pred > 0.5, 1, 0))
+        val_loss /= len(valLoader)
+        val_acc  /= len(valLoader)
 
-            if hvd: val_acc = metric_average(val_acc, 'avg_accuracy')
-            if bestAcc < val_acc:
-                bestModel = model.state_dict()
-                bestAcc = val_acc
+        if hvd: val_acc = metric_average(val_acc, 'avg_accuracy')
+        if bestAcc < val_acc:
+            bestModel = model.state_dict()
+            bestAcc = val_acc
+            if hvd_rank == 0:
+                torch.save(bestModel, weightFile)
+                sysstat.update(annotation="saved_model")
 
-            timeHistory.on_epoch_end()
-            sysstat.update(annotation='epoch_end')
-            history['loss'].append(trn_loss)
-            history['acc'].append(trn_acc)
-            history['val_loss'].append(val_loss)
-            history['val_acc'].append(val_acc)
+        timeHistory.on_epoch_end()
+        sysstat.update(annotation='epoch_end')
+        history['loss'].append(trn_loss)
+        history['acc'].append(trn_acc)
+        history['val_loss'].append(val_loss)
+        history['val_acc'].append(val_acc)
 
-        sysstat.update(annotation="train_end")
+        history['time'].append(timeHistory.times[-1])
+        if hvd_rank == 0:
+            with open(trainingFile, 'w') as f:
+                writer = csv.writer(f)
+                keys = history.keys()
+                writer.writerow(keys)
+                for row in zip(*[history[key] for key in keys]):
+                    writer.writerow(row)
+            sysstat.update(annotation="wrote_logs")
 
-        history['time'] = timeHistory.times[:]
-        with open(trainingFile, 'w') as f:
-            writer = csv.writer(f)
-            keys = history.keys()
-            writer.writerow(keys)
-            for row in zip(*[history[key] for key in keys]):
-                writer.writerow(row)
-        sysstat.update(annotation="wrote_logs")
+    sysstat.update(annotation="train_end")
 
-    except KeyboardInterrupt:
-        print("Training finished early")
-
-if hvd_rank == 0:
-    torch.save(bestModel, weightFile)
-
-    model.load_state_dict(torch.load(weightFile))
-    sysstat.update(annotation="saved_model")
+except KeyboardInterrupt:
+    print("Training finished early")
 
