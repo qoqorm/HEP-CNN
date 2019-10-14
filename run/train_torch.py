@@ -33,6 +33,7 @@ parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Lear
 parser.add_argument('--noEarlyStopping', action='store_true', help='do not apply Early Stopping')
 parser.add_argument('--batchPerStep', action='store', type=int, default=1, help='Number of batches per step (to emulate all-reduce)')
 parser.add_argument('--shuffle', action='store', type=bool, default=True, help='Shuffle batches for each epochs')
+parser.add_argument('--optimizer', action='store', type=str, default='adam', help='optimizer to run')
 
 args = parser.parse_args()
 
@@ -90,8 +91,8 @@ kwargs['pin_memory'] = True
 if hvd:
     trnSampler = torch.utils.data.distributed.DistributedSampler(trnDataset, num_replicas=hvd_size, rank=hvd_rank)
     valSampler = torch.utils.data.distributed.DistributedSampler(valDataset, num_replicas=hvd_size, rank=hvd_rank)
-    trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=args.shuffle, sampler=trnSampler, **kwargs)
-    valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=False, sampler=valSampler, **kwargs)
+    trnLoader = DataLoader(trnDataset, batch_size=args.batch, sampler=trnSampler, **kwargs)
+    valLoader = DataLoader(valDataset, batch_size=args.batch, sampler=valSampler, **kwargs)
 else:
     trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=args.shuffle, **kwargs)
     #valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=args.shuffle, **kwargs)
@@ -100,11 +101,16 @@ else:
 ## Build model
 from HEPCNN.torch_model_default import MyModel
 model = MyModel(trnDataset.width, trnDataset.height)
-#optm = optim.Adam(model.parameters(), lr=args.lr)
-from optimizers.RAdam import RAdam
-from optimizers.Lookahead import Lookahead
-optm_base = RAdam(model.parameters(), lr=args.lr)
-optm = Lookahead(optm_base)
+if args.optimizer == 'radam':
+    from optimizers.RAdam import RAdam
+    optm = RAdam(model.parameters(), lr=args.lr)
+elif args.optimizer == 'ranger':
+    from optimizers.RAdam import RAdam
+    from optimizers.Lookahead import Lookahead
+    optm_base = RAdam(model.parameters(), lr=args.lr)
+    optm = Lookahead(optm_base)
+else: ## Default is assumed to be adam
+    optm = optim.Adam(model.parameters(), lr=args.lr)
 
 device = 'cpu'
 if torch.cuda.is_available():
