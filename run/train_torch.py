@@ -33,7 +33,7 @@ parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Lear
 parser.add_argument('--noEarlyStopping', action='store_true', help='do not apply Early Stopping')
 parser.add_argument('--batchPerStep', action='store', type=int, default=1, help='Number of batches per step (to emulate all-reduce)')
 parser.add_argument('--shuffle', action='store', type=bool, default=True, help='Shuffle batches for each epochs')
-parser.add_argument('--optimizer', action='store', type=str, default='adam', help='optimizer to run')
+parser.add_argument('--optimizer', action='store', choices=('adam', 'radam', 'ranger'), default='adam', help='optimizer to run')
 
 args = parser.parse_args()
 
@@ -109,8 +109,11 @@ elif args.optimizer == 'ranger':
     from optimizers.Lookahead import Lookahead
     optm_base = RAdam(model.parameters(), lr=args.lr)
     optm = Lookahead(optm_base)
-else: ## Default is assumed to be adam
+elif args.optimizer == 'adam':
     optm = optim.Adam(model.parameters(), lr=args.lr)
+else:
+    print("Cannot find optimizer in the list")
+    exit()
 
 device = 'cpu'
 if torch.cuda.is_available():
