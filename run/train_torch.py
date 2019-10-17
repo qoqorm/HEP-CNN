@@ -160,7 +160,8 @@ try:
             weight = weight.float().to(device)
 
             pred = model(data)
-            crit = torch.nn.BCELoss(weight=weight).cuda()
+            crit = torch.nn.BCELoss(weight=weight)
+            if device == 'cuda': crit = crit.cuda()
             l = crit(pred.view(-1), label)
             l.backward()
             if i % args.batchPerStep == 0 or i+1 == len(trnLoader):
