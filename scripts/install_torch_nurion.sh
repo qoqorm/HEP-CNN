@@ -5,6 +5,9 @@ source /apps/applications/miniconda3/etc/profile.d/conda.sh
 module load git craype-mic-knl
 module load gcc/8.3.0
 export USE_CUDA=0
+export USE_MKLDNN=1
+export USE_OPENMP=1
+export USE_TBB=0
 
 ## Just for once
 rm -rf /scratch/$USER/conda/nurion_torch
@@ -25,7 +28,7 @@ git clone --recursive https://github.com/pytorch/pytorch -b v1.4.0
 
 cd pytorch
 git submodule sync
-git submodule update ?init ?recursive
+git submodule update --init --recursive
 export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
 python setup.py install
 ##### This takes even longer time to compile SW?
