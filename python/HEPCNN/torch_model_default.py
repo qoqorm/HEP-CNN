@@ -1,15 +1,18 @@
 #!/usr/bin/env python
-#import torch
+import torch
 import torch.nn as nn
 
 class MyModel(nn.Module):
-    def __init__(self, width, height):
+    def __init__(self, width, height, model='default'):
         super(MyModel, self).__init__()
         self.fw = int(width/2/2/2)
         self.fh = int(height/2/2/2)
 
+        self.nch = 5 if '5ch' in model else 3
+        self.doLog = True if 'log' in model else False
+
         self.conv = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=(3, 3), stride=1, padding=1),
+            nn.Conv2d(self.nch, 64, kernel_size=(3, 3), stride=1, padding=1),
             nn.ReLU(),
             nn.BatchNorm2d(num_features=64, eps=0.001, momentum=0.99),
             nn.MaxPool2d(kernel_size=(2, 2)),
@@ -41,6 +44,11 @@ class MyModel(nn.Module):
         )
 
     def forward(self, x):
+        if self.nch == 5:
+            xx = x[:,-2:,:,:]
+            x = torch.cat((x, xx), dim=1)
+        if self.doLog:
+            x[:,-2:,:,:] = torch.log10(x[:,-2:,:,:]/1e-5+1)
         x = self.conv(x)
         x = x.view(-1, self.fw*self.fh*256)
         x = self.fc(x)
