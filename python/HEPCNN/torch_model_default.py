@@ -9,7 +9,7 @@ class MyModel(nn.Module):
         self.fh = int(height/2/2/2)
 
         self.nch = 5 if '5ch' in model else 3
-        self.doLog = True if 'log' in model else False
+        self.doLog = ('log' in model)
 
         self.conv = nn.Sequential(
             nn.Conv2d(self.nch, 64, kernel_size=(3, 3), stride=1, padding=1),
