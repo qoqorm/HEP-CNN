@@ -161,7 +161,7 @@ try:
             weight = weight.float().to(device)
 
             pred = model(data)
-            crit = torch.nn.BCELoss()#weight=weight)
+            crit = torch.nn.BCELoss(weight=weight)
             if device == 'cuda': crit = crit.cuda()
             l = crit(pred.view(-1), label)
             l.backward()
@@ -184,7 +184,7 @@ try:
             weight = weight.float().to(device)
 
             pred = model(data)
-            crit = torch.nn.BCELoss()#weight=weight)
+            crit = torch.nn.BCELoss(weight=weight)
             loss = crit(pred.view(-1), label)
 
             val_loss += loss.item()
