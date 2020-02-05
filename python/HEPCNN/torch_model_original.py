@@ -3,8 +3,9 @@ import torch
 import torch.nn as nn
 
 class MyModel(nn.Module):
-    def __init__(self, width, height):
+    def __init__(self, width, height, **kwargs):
         super(MyModel, self).__init__()
+        self.nch = 3
         self.fw = width
         self.fh = height
 
