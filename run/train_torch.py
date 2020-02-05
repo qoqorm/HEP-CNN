@@ -73,7 +73,7 @@ sysstat = SysStat(os.getpid(), fileName=resourceByCPFile)
 sysstat.update(annotation="start_loggin")
 
 sys.path.append("../python")
-#from HEPCNN.torch_dataset import HEPCNNSplitedDataset as MyDataset
+#from HEPCNN.torch_dataset_splited import HEPCNNSplitDataset as MyDataset
 from HEPCNN.torch_dataset import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="open_trn")

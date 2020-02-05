@@ -25,7 +25,9 @@ if args.suffix != '': args.suffix = '_'+args.suffix
 print("Opening input dataset %s..." % srcFileName)
 data = h5py.File(srcFileName, 'r')
 nEventsTotal = len(data['all_events']['weight'])
-if not args.split and args.nevent >= 0: nEventsTotal = args.nevent
+if not args.split:
+    if args.nevent >= 0: nEventsTotal = args.nevent
+    else: args.nevent = nEventsTotal
 print("  total event to preprocess=", nEventsTotal)
 
 for i, begin in enumerate(range(0, nEventsTotal, args.nevent)):
