@@ -151,7 +151,7 @@ sysstat.update(annotation="modelsetup_done")
 with open(args.outdir+'/summary.txt', 'w') as fout:
     fout.write(str(args))
     fout.write('\n\n')
-    fout.write(model)
+    fout.write(str(model))
     fout.close()
 
 from tqdm import tqdm
