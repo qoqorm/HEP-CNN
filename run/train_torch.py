@@ -148,6 +148,10 @@ def metric_average(val, name):
 
 sysstat.update(annotation="modelsetup_done")
 
+with open(args.outdir+'/summary.txt', 'w') as fout:
+    fout.write(args)
+    fout.write(model.summary())
+
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
 bestModel, bestAcc = {}, -1
