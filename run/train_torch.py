@@ -34,7 +34,7 @@ parser.add_argument('--noEarlyStopping', action='store_true', help='do not apply
 parser.add_argument('--batchPerStep', action='store', type=int, default=1, help='Number of batches per step (to emulate all-reduce)')
 parser.add_argument('--shuffle', action='store', type=bool, default=True, help='Shuffle batches for each epochs')
 parser.add_argument('--optimizer', action='store', choices=('sgd', 'adam', 'radam', 'ranger'), default='adam', help='optimizer to run')
-parser.add_argument('--model', action='store', choices=('default', 'log3ch', 'log5ch'), default='default', help='choice of model')
+parser.add_argument('--model', action='store', choices=('default', 'log3ch', 'log5ch', 'original'), default='default', help='choice of model')
 
 args = parser.parse_args()
 
@@ -73,15 +73,21 @@ sysstat = SysStat(os.getpid(), fileName=resourceByCPFile)
 sysstat.update(annotation="start_loggin")
 
 sys.path.append("../python")
-#from HEPCNN.torch_dataset_splited import HEPCNNSplitDataset as MyDataset
+from HEPCNN.torch_dataset_splited import HEPCNNSplitDataset as MySplitDataset
 from HEPCNN.torch_dataset import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="open_trn")
-trnDataset = MyDataset(args.trndata, args.ntrain, syslogger=sysstat)
+if os.path.isdir(args.trndata):
+    trnDataset = MySplitDataset(args.trndata, args.ntrain, syslogger=sysstat)
+else:
+    trnDataset = MyDataset(args.trndata, args.ntrain, syslogger=sysstat)
 sysstat.update(annotation="read_trn")
 
 sysstat.update(annotation="open_val")
-valDataset = MyDataset(args.valdata, args.ntest, syslogger=sysstat)
+if os.path.isdir(args.trndata):
+    valDataset = MySplitDataset(args.valdata, args.ntest, syslogger=sysstat)
+else:
+    valDataset = MyDataset(args.valdata, args.ntest, syslogger=sysstat)
 sysstat.update(annotation="read_val")
 
 kwargs = {'num_workers':min(4, nthreads)}
@@ -100,7 +106,10 @@ else:
     valLoader = DataLoader(valDataset, batch_size=512, shuffle=False, **kwargs)
 
 ## Build model
-from HEPCNN.torch_model_default import MyModel
+if args.model == 'original':
+    from HEPCNN.torch_model_original import MyModel
+else:
+    from HEPCNN.torch_model_default import MyModel
 model = MyModel(trnDataset.width, trnDataset.height, model=args.model)
 device = 'cpu'
 if torch.cuda.is_available():
