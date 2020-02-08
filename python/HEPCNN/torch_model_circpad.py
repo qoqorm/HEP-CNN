@@ -16,9 +16,9 @@ class MyModel(nn.Module):
             nn.ReplicationPad2d( (2, 0, 0, 0) ), ## (left, right, top, bottom)
             nn.Conv2d(self.nch, 64, kernel_size=(3, 3), stride=1, padding=(1,0)), ## padding=(height,width)
 
-            nn.BatchNorm2d(num_features=64, eps=0.001, momentum=0.99),
             nn.MaxPool2d(kernel_size=(2, 2)),
             nn.ReLU(),
+            nn.BatchNorm2d(num_features=64, eps=0.001, momentum=0.99),
             nn.Dropout2d(0.5),
         ])
         self.fh = self.fh//2
@@ -28,9 +28,9 @@ class MyModel(nn.Module):
             nn.ReplicationPad2d( (2, 0, 0, 0) ), ## (left, right, top, bottom)
             nn.Conv2d(64, 128, kernel_size=(3, 3), stride=1, padding=(1,0)),
 
-            nn.BatchNorm2d(num_features=128, eps=0.001, momentum=0.99),
             nn.MaxPool2d(kernel_size=(2, 2)),
             nn.ReLU(),
+            nn.BatchNorm2d(num_features=128, eps=0.001, momentum=0.99),
             nn.Dropout2d(0.5),
         ])
         self.fh = self.fh//2
@@ -40,9 +40,9 @@ class MyModel(nn.Module):
             nn.ReplicationPad2d( (2, 0, 0, 0) ), ## (left, right, top, bottom)
             nn.Conv2d(128, 256, kernel_size=(3, 3), stride=1, padding=(1,0)),
 
-            nn.BatchNorm2d(num_features=256, eps=0.001, momentum=0.99),
             nn.MaxPool2d(kernel_size=(2, 2)),
             nn.ReLU(),
+            nn.BatchNorm2d(num_features=256, eps=0.001, momentum=0.99),
             nn.Dropout2d(0.5),
 
         ])
@@ -53,8 +53,8 @@ class MyModel(nn.Module):
             nn.ReplicationPad2d( (2, 0, 0, 0) ), ## (left, right, top, bottom)
             nn.Conv2d(256, 256, kernel_size=(3, 3), stride=1, padding=(1,0)),
 
-            nn.BatchNorm2d(num_features=256, eps=0.001, momentum=0.99),
             nn.ReLU(),
+            nn.BatchNorm2d(num_features=256, eps=0.001, momentum=0.99),
         ])
 
         self.conv = nn.Sequential(*self.conv)
