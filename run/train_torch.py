@@ -49,6 +49,7 @@ if hvd:
     #torch.cuda.set_device(hvd.local_rank())
 
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
+modelFile = os.path.join(args.outdir, 'model.pkl')
 weightFile = os.path.join(args.outdir, 'weight_%d.pkl' % hvd_rank)
 predFile = os.path.join(args.outdir, 'predict_%d.npy' % hvd_rank)
 trainingFile = os.path.join(args.outdir, 'history_%d.csv' % hvd_rank)
@@ -114,6 +115,7 @@ elif 'circpad' in args.model:
 else:
     from HEPCNN.torch_model_default import MyModel
 model = MyModel(trnDataset.width, trnDataset.height, model=args.model)
+if hvd_rank == 0: torch.save(model, modelFile)
 device = 'cpu'
 if torch.cuda.is_available():
     model = model.cuda()
