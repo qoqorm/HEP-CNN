@@ -79,14 +79,14 @@ from HEPCNN.torch_dataset import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="open_trn")
 if os.path.isdir(args.trndata):
-    trnDataset = MySplitDataset(args.trndata, args.ntrain, syslogger=sysstat)
+    trnDataset = MySplitDataset(args.trndata, args.ntrain, nWorkers=nthreads//2, syslogger=sysstat)
 else:
     trnDataset = MyDataset(args.trndata, args.ntrain, syslogger=sysstat)
 sysstat.update(annotation="read_trn")
 
 sysstat.update(annotation="open_val")
 if os.path.isdir(args.valdata):
-    valDataset = MySplitDataset(args.valdata, args.ntest, syslogger=sysstat)
+    valDataset = MySplitDataset(args.valdata, args.ntest, nWorkers=nthreads//2, syslogger=sysstat)
 else:
     valDataset = MyDataset(args.valdata, args.ntest, syslogger=sysstat)
 sysstat.update(annotation="read_val")
