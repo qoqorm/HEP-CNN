@@ -1,6 +1,18 @@
 import torch
 import torch.nn as nn
 
+class CircularPadY(nn.Module):
+    def __init__(self, pad):
+        super(CircularPadY, self).__init__()
+        self.pad = pad
+
+    def forward(self, x):
+        if x.dim() == 4:
+            return torch.cat([x, x[:,:,-2*self.pad:,:]], axis=2)
+        elif x.dim() == 3:
+            return torch.cat([x, x[:,-2*self.pad:,:]], axis=1)
+        return None
+
 class MyModel(nn.Module):
     def __init__(self, width, height, model='default'):
         super(MyModel, self).__init__()
@@ -13,8 +25,8 @@ class MyModel(nn.Module):
         self.conv = []
 
         self.conv.extend([
-            nn.ReplicationPad2d( (2, 0, 0, 0) ), ## (left, right, top, bottom)
-            nn.Conv2d(self.nch, 64, kernel_size=(3, 3), stride=1, padding=(1,0)), ## padding=(height,width)
+            CircularPadY(1),
+            nn.Conv2d(self.nch, 64, kernel_size=(3, 3), stride=1, padding=(0,1)), ## padding=(height,width)
 
             nn.MaxPool2d(kernel_size=(2, 2)),
             nn.ReLU(),
@@ -25,8 +37,8 @@ class MyModel(nn.Module):
         self.fw = self.fw//2
 
         self.conv.extend([
-            nn.ReplicationPad2d( (2, 0, 0, 0) ), ## (left, right, top, bottom)
-            nn.Conv2d(64, 128, kernel_size=(3, 3), stride=1, padding=(1,0)),
+            CircularPadY(1),
+            nn.Conv2d(64, 128, kernel_size=(3, 3), stride=1, padding=(0,1)),
 
             nn.MaxPool2d(kernel_size=(2, 2)),
             nn.ReLU(),
@@ -37,8 +49,8 @@ class MyModel(nn.Module):
         self.fw = self.fw//2
 
         self.conv.extend([
-            nn.ReplicationPad2d( (2, 0, 0, 0) ), ## (left, right, top, bottom)
-            nn.Conv2d(128, 256, kernel_size=(3, 3), stride=1, padding=(1,0)),
+            CircularPadY(1),
+            nn.Conv2d(128, 256, kernel_size=(3, 3), stride=1, padding=(0,1)),
 
             nn.MaxPool2d(kernel_size=(2, 2)),
             nn.ReLU(),
@@ -50,8 +62,8 @@ class MyModel(nn.Module):
         self.fw = self.fw//2
 
         self.conv.extend([
-            nn.ReplicationPad2d( (2, 0, 0, 0) ), ## (left, right, top, bottom)
-            nn.Conv2d(256, 256, kernel_size=(3, 3), stride=1, padding=(1,0)),
+            CircularPadY(1),
+            nn.Conv2d(256, 256, kernel_size=(3, 3), stride=1, padding=(0,1)),
 
             nn.ReLU(),
             nn.BatchNorm2d(num_features=256, eps=0.001, momentum=0.99),
