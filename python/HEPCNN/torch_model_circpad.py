@@ -7,10 +7,11 @@ class CircularPadY(nn.Module):
         self.pad = pad
 
     def forward(self, x):
+        ## Note: attaching left&right column does the same with append 2 columns on the right hand side
         if x.dim() == 4:
-            return torch.cat([x, x[:,:,-2*self.pad:,:]], axis=2)
+            return torch.cat([x, x[:,:,-2*self.pad:,:]], dim=-2)
         elif x.dim() == 3:
-            return torch.cat([x, x[:,-2*self.pad:,:]], axis=1)
+            return torch.cat([x, x[:,-2*self.pad:,:]], dim=-2)
         return None
 
 class MyModel(nn.Module):
