@@ -46,9 +46,9 @@ class MyModel(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(self.fw*self.fh*256, 512),
             nn.ReLU(),
-            nn.Dropout2d(0.5),
+            nn.Dropout(0.5),
             nn.Linear(512, 1),
-            nn.Sigmoid(),
+            #nn.Sigmoid(),
         )
 
     def forward(self, x):
