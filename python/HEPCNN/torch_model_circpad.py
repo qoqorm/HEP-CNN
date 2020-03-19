@@ -1,17 +1,17 @@
 import torch
 import torch.nn as nn
 
-class CircularPadY(nn.Module):
+class CircularPadX(nn.Module):
     def __init__(self, pad):
-        super(CircularPadY, self).__init__()
+        super(CircularPadX, self).__init__()
         self.pad = pad
 
     def forward(self, x):
         ## Note: attaching left&right column does the same with append 2 columns on the right hand side
         if x.dim() == 4:
-            return torch.cat([x, x[:,:,-2*self.pad:,:]], dim=-2)
+            return torch.cat([x, x[:,:,:,-2*self.pad:]], dim=-2)
         elif x.dim() == 3:
-            return torch.cat([x, x[:,-2*self.pad:,:]], dim=-2)
+            return torch.cat([x, x[:,:,-2*self.pad:]], dim=-2)
         return None
 
 class MyModel(nn.Module):
@@ -26,8 +26,8 @@ class MyModel(nn.Module):
         self.conv = []
 
         self.conv.extend([
-            CircularPadY(1),
-            nn.Conv2d(self.nch, 64, kernel_size=(3, 3), stride=1, padding=(0,1)), ## padding=(height,width)
+            CircularPadX(1),
+            nn.Conv2d(self.nch, 64, kernel_size=(3, 3), stride=1, padding=(1,0)), ## padding=(height,width)
 
             nn.MaxPool2d(kernel_size=(2, 2)),
             nn.ReLU(),
@@ -38,8 +38,8 @@ class MyModel(nn.Module):
         self.fw = self.fw//2
 
         self.conv.extend([
-            CircularPadY(1),
-            nn.Conv2d(64, 128, kernel_size=(3, 3), stride=1, padding=(0,1)),
+            CircularPadX(1),
+            nn.Conv2d(64, 128, kernel_size=(3, 3), stride=1, padding=(1,0)),
 
             nn.MaxPool2d(kernel_size=(2, 2)),
             nn.ReLU(),
@@ -50,8 +50,8 @@ class MyModel(nn.Module):
         self.fw = self.fw//2
 
         self.conv.extend([
-            CircularPadY(1),
-            nn.Conv2d(128, 256, kernel_size=(3, 3), stride=1, padding=(0,1)),
+            CircularPadX(1),
+            nn.Conv2d(128, 256, kernel_size=(3, 3), stride=1, padding=(1,0)),
 
             nn.MaxPool2d(kernel_size=(2, 2)),
             nn.ReLU(),
@@ -63,8 +63,8 @@ class MyModel(nn.Module):
         self.fw = self.fw//2
 
         self.conv.extend([
-            CircularPadY(1),
-            nn.Conv2d(256, 256, kernel_size=(3, 3), stride=1, padding=(0,1)),
+            CircularPadX(1),
+            nn.Conv2d(256, 256, kernel_size=(3, 3), stride=1, padding=(1,0)),
 
             nn.ReLU(),
             nn.BatchNorm2d(num_features=256, eps=0.001, momentum=0.99),
