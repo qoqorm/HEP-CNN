@@ -36,6 +36,7 @@ parser.add_argument('--shuffle', action='store', type=bool, default=True, help='
 parser.add_argument('--optimizer', action='store', choices=('sgd', 'adam', 'radam', 'ranger'), default='adam', help='optimizer to run')
 parser.add_argument('--model', action='store', choices=('default', 'log3ch', 'log5ch', 'original', 'circpad', 'circpadlog3ch', 'circpadlog5ch'), 
                                default='default', help='choice of model')
+parser.add_argument('--nreader', action='store', type=int, default=1, help='Number of loaders')
 
 args = parser.parse_args()
 
@@ -80,14 +81,14 @@ from HEPCNN.torch_dataset import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="open_trn")
 if os.path.isdir(args.trndata):
-    trnDataset = MySplitDataset(args.trndata, args.ntrain, nWorkers=nthreads//2, syslogger=sysstat)
+    trnDataset = MySplitDataset(args.trndata, args.ntrain, nWorkers=args.nreader, syslogger=sysstat)
 else:
     trnDataset = MyDataset(args.trndata, args.ntrain, syslogger=sysstat)
 sysstat.update(annotation="read_trn")
 
 sysstat.update(annotation="open_val")
 if os.path.isdir(args.valdata):
-    valDataset = MySplitDataset(args.valdata, args.ntest, nWorkers=nthreads//2, syslogger=sysstat)
+    valDataset = MySplitDataset(args.valdata, args.ntest, nWorkers=args.nreader, syslogger=sysstat)
 else:
     valDataset = MyDataset(args.valdata, args.ntest, syslogger=sysstat)
 sysstat.update(annotation="read_val")
