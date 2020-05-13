@@ -77,11 +77,3 @@ for i, begin in enumerate(range(0, nEventsTotal, args.nevent)):
             print("  created", outFileName)
             print("  keys=", list(outFile.keys()))
             print("  shape=", outFile['all_events']['images'].shape)
-    elif outFileName.endswith('npz'):
-        args = {
-            'images': image,
-            'labels': labels,
-            'weights': weights,
-        }
-        np.savez_compressed(outFileName, **args)
-        print("  done")
