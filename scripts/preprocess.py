@@ -10,7 +10,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--input', action='store', type=str, help='input file name', required=True)
 parser.add_argument('-o', '--output', action='store', type=str, help='output file name', required=True)
 parser.add_argument('-n', '--nevent', action='store', type=int, default=-1, help='number of events to preprocess')
-parser.add_argument('--suffix', action='store', type=str, default='', help='suffix for output ("" for train, "val" for validation set)')
 parser.add_argument('--format', action='store', choices=('NHWC', 'NCHW'), default='NHWC', help='image format for output (NHWC for TF default, NCHW for pytorch default)')
 parser.add_argument('-c', '--chunk', action='store', type=int, default=1024, help='chunk size')
 parser.add_argument('--nocompress', dest='nocompress', action='store_true', default=False, help='disable gzip compression')
@@ -19,7 +18,6 @@ args = parser.parse_args()
 
 srcFileName = args.input
 outFileName = args.output
-if args.suffix != '': args.suffix = '_'+args.suffix
 
 print("Opening input dataset %s..." % srcFileName)
 data = h5py.File(srcFileName, 'r')
@@ -69,21 +67,21 @@ for i, begin in enumerate(range(0, nEventsTotal, args.nevent)):
         with h5py.File(outFileName, 'w', libver='latest') as outFile:
             g = outFile.create_group('all_events')
             kwargs = {} if args.nocompress else {'compression':'gzip', 'compression_opts':9}
-            g.create_dataset('images'+args.suffix, data=image, chunks=((chunkSize,)+image.shape[1:]), **kwargs)
-            g.create_dataset('labels'+args.suffix, data=labels, chunks=(chunkSize,))
-            g.create_dataset('weights'+args.suffix, data=weights, chunks=(chunkSize,))
+            g.create_dataset('images', data=image, chunks=((chunkSize,)+image.shape[1:]), **kwargs)
+            g.create_dataset('labels', data=labels, chunks=(chunkSize,))
+            g.create_dataset('weights', data=weights, chunks=(chunkSize,))
             outFile.swmr_mode = True
             print("  done")
 
         with h5py.File(outFileName, 'r') as outFile:
             print("  created", outFileName)
             print("  keys=", list(outFile.keys()))
-            print("  shape=", outFile['all_events']['images'+args.suffix].shape)
+            print("  shape=", outFile['all_events']['images'].shape)
     elif outFileName.endswith('npz'):
         args = {
-            'images'+args.suffix: image,
-            'labels'+args.suffix: labels,
-            'weights'+args.suffix: weights,
+            'images': image,
+            'labels': labels,
+            'weights': weights,
         }
         np.savez_compressed(outFileName, **args)
         print("  done")
@@ -102,11 +100,9 @@ for i, begin in enumerate(range(0, nEventsTotal, args.nevent)):
                 print("  Write chunk (%d/%d)" % (i, nsplit), end='\r')
                 sys.stdout.flush()
                 ex = tf.train.Example(features=tf.train.Features(feature={
-                    'all_events/images'+args.suffix: tf.train.Feature(bytes_list=tf.train.BytesList(value=[ximage[i].tobytes()])),
-                    #'all_events/images'+args.suffix: tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.compat.as_bytes(ximage[i].tostring())])),
-                    #'all_events/images'+args.suffix: tf.train.Feature(float_list=tf.train.FloatList(value=ximage[i].astype(np.float32).reshape(-1))),
-                    'all_events/labels'+args.suffix: tf.train.Feature(int64_list=tf.train.Int64List(value=xlabels[i].astype(np.int32))),
-                    'all_events/weights'+args.suffix: tf.train.Feature(float_list=tf.train.FloatList(value=xweights[i].astype(np.float32))),
+                    'all_events/images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[ximage[i].tobytes()])),
+                    'all_events/labels': tf.train.Feature(int64_list=tf.train.Int64List(value=xlabels[i].astype(np.int32))),
+                    'all_events/weights': tf.train.Feature(float_list=tf.train.FloatList(value=xweights[i].astype(np.float32))),
                 }))
                 writer.write(ex.SerializeToString())
             print("\n  done")
