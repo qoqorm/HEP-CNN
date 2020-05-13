@@ -58,8 +58,8 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
     ## Open data file
     data = h5py.File(srcFileName, 'r')['all_events']
 
-    labels = data['y'] if 'y' in data else np.ones(0)
     weights = data['weight']
+    labels = data['y'] if 'y' in data else np.ones(weights.shape[0])
 
     image_h = data['hist']
     image_e = data['histEM']
@@ -102,9 +102,9 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
         ## Do the processing
         nEventToGo -= (end-begin)
 
-        out_labels = np.concatenate([out_labels, labels[begin:end]], axis=0)
-        out_weights = np.concatenate([out_weights, weights[begin:end]], axis=0)
-        out_image = np.concatenate([out_image, image[begin:end,:,:,:]], axis=0)
+        out_labels = np.concatenate([out_labels, labels[begin:end]])
+        out_weights = np.concatenate([out_weights, weights[begin:end]])
+        out_image = np.concatenate([out_image, image[begin:end,:,:,:]])
 
         begin, end = end, min(nEventToGo, nEvent0)
 
@@ -116,13 +116,15 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
             outFileName = outPrefix + (("_%d" % iOutFile) if args.split else "") + ".h5"
             print("Writing output file %s..." % outFileName)
 
+            print(out_image.shape, out_labels.shape, out_weights.shape)
+
             chunkSize = min(args.chunk, out_weights.shape[0])
             with h5py.File(outFileName, 'w', libver='latest') as outFile:
                 g = outFile.create_group('all_events')
                 kwargs = {} if args.nocompress else {'compression':'gzip', 'compression_opts':9}
-                g.create_dataset('images', data=image, chunks=((chunkSize,)+image.shape[1:]), **kwargs)
-                g.create_dataset('labels', data=labels, chunks=(chunkSize,))
-                g.create_dataset('weights', data=weights, chunks=(chunkSize,))
+                g.create_dataset('images', data=out_image, chunks=((chunkSize,)+out_image.shape[1:]), **kwargs)
+                g.create_dataset('labels', data=out_labels, chunks=(chunkSize,))
+                g.create_dataset('weights', data=out_weights, chunks=(chunkSize,))
                 outFile.swmr_mode = True
                 print("  done")
 
