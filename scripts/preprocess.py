@@ -129,7 +129,7 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
             with h5py.File(outFileName, 'r') as outFile:
                 print("  created", outFileName, end='')
                 print("  keys=", list(outFile.keys()), end='')
-                print("  shape=", outFile['all_events']['images'].shape, end='')
+                print("  shape=", outFile['all_events']['images'].shape)
 
             continue
 
