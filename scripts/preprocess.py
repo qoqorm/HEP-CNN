@@ -12,7 +12,6 @@ parser.add_argument('-o', '--output', action='store', type=str, help='output fil
 parser.add_argument('-n', '--nevent', action='store', type=int, default=-1, help='number of events to preprocess')
 parser.add_argument('--suffix', action='store', type=str, default='', help='suffix for output ("" for train, "val" for validation set)')
 parser.add_argument('--format', action='store', choices=('NHWC', 'NCHW'), default='NHWC', help='image format for output (NHWC for TF default, NCHW for pytorch default)')
-parser.add_argument('--circpad', action='store', type=int, default=0, help='padding size for the circular padding (0 for no-padding)')
 parser.add_argument('-c', '--chunk', action='store', type=int, default=1024, help='chunk size')
 parser.add_argument('--nocompress', dest='nocompress', action='store_true', default=False, help='disable gzip compression')
 parser.add_argument('-s', '--split', action='store_true', default=False, help='split output file')
@@ -45,19 +44,6 @@ for i, begin in enumerate(range(0, nEventsTotal, args.nevent)):
     #print("Normalizing EM, track histograms...")
     image_e /= image_e.max()
     image_t /= image_t.max()
-
-    if args.circpad > 0:
-        if i == 0:
-            print("Apply circular padding, size=", args.circpad, "...")
-            print("  Note for the next step: circular padding size depend on the CNN structure (layers, kernel, maxpool...).")
-            print("  Please double check with your model.")
-
-            print("    input image shape=", image_h.shape)
-        image_h = np.concatenate([image_h, image_h[:,:,:args.circpad]], axis=-1)
-        image_e = np.concatenate([image_e, image_e[:,:,:args.circpad]], axis=-1)
-        image_t = np.concatenate([image_t, image_t[:,:,:args.circpad]], axis=-1)
-        if i == 0:
-            print("    output image shape=", image_h.shape)
 
     if i == 0:
         print("Joining channels...")
