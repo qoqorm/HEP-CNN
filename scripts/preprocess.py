@@ -3,76 +3,133 @@ import h5py
 import numpy as np
 import argparse
 import sys
+from math import ceil
 
 if sys.version_info[0] < 3: sys.exit()
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-i', '--input', action='store', type=str, help='input file name', required=True)
+parser.add_argument('input', nargs='+', action='store', type=str, help='input file names')
 parser.add_argument('-o', '--output', action='store', type=str, help='output file name', required=True)
-parser.add_argument('-n', '--nevent', action='store', type=int, default=-1, help='number of events to preprocess')
+parser.add_argument('--nevent', action='store', type=int, default=-1, help='number of events to preprocess')
+parser.add_argument('--nfiles', action='store', type=int, default=1, help='number of output files')
 parser.add_argument('--format', action='store', choices=('NHWC', 'NCHW'), default='NHWC', help='image format for output (NHWC for TF default, NCHW for pytorch default)')
 parser.add_argument('-c', '--chunk', action='store', type=int, default=1024, help='chunk size')
 parser.add_argument('--nocompress', dest='nocompress', action='store_true', default=False, help='disable gzip compression')
 parser.add_argument('-s', '--split', action='store_true', default=False, help='split output file')
 args = parser.parse_args()
 
-srcFileName = args.input
-outFileName = args.output
+srcFileNames = [x for x in args.input if x.endswith('.h5')]
+outPrefix, outSuffix = args.output.rsplit('.', 1)
+args.nfiles = max(args.nfiles, 1) ## nfiles should be not less than 1
+args.nevent = max(args.nevent, -1) ## nevent should be -1 to process everything or give specific value
 
-print("Opening input dataset %s..." % srcFileName)
-data = h5py.File(srcFileName, 'r')
-nEventsTotal = len(data['all_events']['weight'])
-if not args.split:
-    if args.nevent >= 0: nEventsTotal = args.nevent
-    else: args.nevent = nEventsTotal
-print("  total event to preprocess=", nEventsTotal)
+## Logic for the arguments regarding on splitting
+##   split off: we will simply ignore nfiles parameter
+##     nevent == -1: process all events store in one file
+##     nevent != -1: process portion of events, store in one file
+##   split on:
+##     nevent == -1, nfiles == 1: same as the one without splitting
+##     nevent != -1, nfiles == 1: same as the one without splitting
+##     nevent == -1, nfiles != 1: process all events, split into nfiles
+##     nevent != -1, nfiles != 1: split files, limit total number of events to be nevent
+if not args.split or args.nfiles == 1:
+    ## Just confirm the options for no-splitting case
+    args.split = False
+    args.nfiles = 1
 
-for i, begin in enumerate(range(0, nEventsTotal, args.nevent)):
-    end = min(begin+args.nevent, nEventsTotal)
+## First scan files to get total number of events
+print("@@@ Checking input files... (total %d files)" % (len(args.input)))
+nEventTotal = 0
+nEvent0s = []
+for srcFileName in srcFileNames:
+    data = h5py.File(srcFileName, 'r')['all_events']
+    nEvent0 = data['hist'].shape[0]
+    nEvent0s.append(nEvent0)
+    nEventTotal += nEvent0
+nEventOutFile = int(ceil(nEventTotal/args.nfiles))
+print("@@@ Total %d events to process, store into %d files (%d events per file)" % (nEventTotal, args.nfiles, nEventOutFile))
 
-    if args.split: outFileName = '%s_%d.h5' % (args.output.rsplit('.', 1)[0], i)
-    else: outFileName = args.output
+print("@@@ Start processing...")
+iOutFile = 0 ## For the output file index, out_1.h5 out_2.h5...
+nEventToGo = nEventOutFile
+out_labels, out_weights, out_image = None, None, None
+for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
+    print("Open file", srcFileName)
+    ## Open data file
+    data = h5py.File(srcFileName, 'r')['all_events']
 
-    labels = data['all_events']['y'][begin:end]
-    weights = data['all_events']['weight'][begin:end]
-    image_h = data['all_events']['hist'][begin:end]
-    image_e = data['all_events']['histEM'][begin:end]
-    image_t = data['all_events']['histtrack'][begin:end]
+    labels = data['y'] if 'y' in data else np.ones(0)
+    weights = data['weight']
 
-    #print("Normalizing EM, track histograms...")
-    image_e /= image_e.max()
-    image_t /= image_t.max()
+    image_h = data['hist']
+    image_e = data['histEM']
+    image_t = data['histtrack']
 
-    if i == 0:
-        print("Joining channels...")
-        print("  Input image shape=", image_h.shape, image_e.shape, image_t.shape)
+    ## Preprocess image
+    image_e /= np.max(image_e)
+    image_t /= np.max(image_t)
+
+    if iSrcFile == 0:
+        print("Build multi-channels image...")
+        print("  Input image shape from the 1st file =", image_h.shape, image_e.shape, image_t.shape)
+
     if args.format == 'NHWC':
         image_h = np.expand_dims(image_h, -1)
         image_e = np.expand_dims(image_e, -1)
         image_t = np.expand_dims(image_t, -1)
         image = np.concatenate([image_h, image_e, image_t], axis=-1)
-    else:
+    else: ## for the NCHW
         image_h = np.expand_dims(image_h, 1)
         image_e = np.expand_dims(image_e, 1)
         image_t = np.expand_dims(image_t, 1)
         image = np.concatenate([image_h, image_e, image_t], axis=1)
-    if i == 0:
+
+    if iSrcFile == 0:
         print("  Output image format=", args.format)
-        print("  Output image shape=", image.shape)
+        print("  Output image shape from the 1st file =", image.shape)
 
-    print("Writing output file %s..." % outFileName)
-    nEvent = image.shape[0]
-    chunkSize = min(args.chunk, nEvent)
-    with h5py.File(outFileName, 'w', libver='latest') as outFile:
-        g = outFile.create_group('all_events')
-        kwargs = {} if args.nocompress else {'compression':'gzip', 'compression_opts':9}
-        g.create_dataset('images', data=image, chunks=((chunkSize,)+image.shape[1:]), **kwargs)
-        g.create_dataset('labels', data=labels, chunks=(chunkSize,))
-        g.create_dataset('weights', data=weights, chunks=(chunkSize,))
-        outFile.swmr_mode = True
-        print("  done")
+    ## Put into the output file
+    begin, end = 0, min(nEventToGo, nEvent0)
+    while begin < nEvent0:
+        ### First check to prepare output array
+        if nEventToGo == nEventOutFile: ## Initializing output file
+            ## Build placeholder for the output
+            out_labels = np.ones(0)
+            out_weights = np.ones(0)
+            out_image = np.ones([0,*image.shape[1:]])
+        ####
 
-    with h5py.File(outFileName, 'r') as outFile:
-        print("  created", outFileName)
-        print("  keys=", list(outFile.keys()))
-        print("  shape=", outFile['all_events']['images'].shape)
+        ## Do the processing
+        nEventToGo -= (end-begin)
+
+        out_labels = np.concatenate([out_labels, labels[begin:end]], axis=0)
+        out_weights = np.concatenate([out_weights, weights[begin:end]], axis=0)
+        out_image = np.concatenate([out_image, image[begin:end,:,:,:]], axis=0)
+
+        begin, end = end, min(nEventToGo, nEvent0)
+
+        if nEventToGo <= 0: ## Flush output and continue
+            nEventToGo = nEventOutFile
+            end = min(begin+nEventToGo, nEvent0)
+
+            iOutFile += 1
+            outFileName = outPrefix + (("_%d" % iOutFile) if args.split else "") + ".h5"
+            print("Writing output file %s..." % outFileName)
+
+            chunkSize = min(args.chunk, out_weights.shape[0])
+            with h5py.File(outFileName, 'w', libver='latest') as outFile:
+                g = outFile.create_group('all_events')
+                kwargs = {} if args.nocompress else {'compression':'gzip', 'compression_opts':9}
+                g.create_dataset('images', data=image, chunks=((chunkSize,)+image.shape[1:]), **kwargs)
+                g.create_dataset('labels', data=labels, chunks=(chunkSize,))
+                g.create_dataset('weights', data=weights, chunks=(chunkSize,))
+                outFile.swmr_mode = True
+                print("  done")
+
+            with h5py.File(outFileName, 'r') as outFile:
+                print("  created", outFileName)
+                print("  keys=", list(outFile.keys()))
+                print("  shape=", outFile['all_events']['images'].shape)
+
+            continue
+
