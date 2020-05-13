@@ -85,24 +85,3 @@ for i, begin in enumerate(range(0, nEventsTotal, args.nevent)):
         }
         np.savez_compressed(outFileName, **args)
         print("  done")
-    elif outFileName.endswith('.tfrecords'):
-        import tensorflow as tf
-        options = tf.python_io.TFRecordOptions(
-            compression_method=tf.python_io.TFRecordCompressionType.GZIP,
-            compression_level=9,
-        )
-        with tf.python_io.TFRecordWriter(outFileName, options=options) as writer:
-            nsplit = int(np.ceil(1.0*nEvent/chunkSize))
-            ximage = np.array_split(image, nsplit)
-            xlabels = np.array_split(labels, nsplit)
-            xweights = np.array_split(weights, nsplit)
-            for i in range(nsplit):
-                print("  Write chunk (%d/%d)" % (i, nsplit), end='\r')
-                sys.stdout.flush()
-                ex = tf.train.Example(features=tf.train.Features(feature={
-                    'all_events/images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[ximage[i].tobytes()])),
-                    'all_events/labels': tf.train.Feature(int64_list=tf.train.Int64List(value=xlabels[i].astype(np.int32))),
-                    'all_events/weights': tf.train.Feature(float_list=tf.train.FloatList(value=xweights[i].astype(np.float32))),
-                }))
-                writer.write(ex.SerializeToString())
-            print("\n  done")
