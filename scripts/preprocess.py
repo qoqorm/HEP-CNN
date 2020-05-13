@@ -63,17 +63,16 @@ for i, begin in enumerate(range(0, nEventsTotal, args.nevent)):
     print("Writing output file %s..." % outFileName)
     nEvent = image.shape[0]
     chunkSize = min(args.chunk, nEvent)
-    if outFileName.endswith('.h5'):
-        with h5py.File(outFileName, 'w', libver='latest') as outFile:
-            g = outFile.create_group('all_events')
-            kwargs = {} if args.nocompress else {'compression':'gzip', 'compression_opts':9}
-            g.create_dataset('images', data=image, chunks=((chunkSize,)+image.shape[1:]), **kwargs)
-            g.create_dataset('labels', data=labels, chunks=(chunkSize,))
-            g.create_dataset('weights', data=weights, chunks=(chunkSize,))
-            outFile.swmr_mode = True
-            print("  done")
+    with h5py.File(outFileName, 'w', libver='latest') as outFile:
+        g = outFile.create_group('all_events')
+        kwargs = {} if args.nocompress else {'compression':'gzip', 'compression_opts':9}
+        g.create_dataset('images', data=image, chunks=((chunkSize,)+image.shape[1:]), **kwargs)
+        g.create_dataset('labels', data=labels, chunks=(chunkSize,))
+        g.create_dataset('weights', data=weights, chunks=(chunkSize,))
+        outFile.swmr_mode = True
+        print("  done")
 
-        with h5py.File(outFileName, 'r') as outFile:
-            print("  created", outFileName)
-            print("  keys=", list(outFile.keys()))
-            print("  shape=", outFile['all_events']['images'].shape)
+    with h5py.File(outFileName, 'r') as outFile:
+        print("  created", outFileName)
+        print("  keys=", list(outFile.keys()))
+        print("  shape=", outFile['all_events']['images'].shape)
