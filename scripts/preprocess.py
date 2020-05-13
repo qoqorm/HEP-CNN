@@ -114,9 +114,7 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
 
             iOutFile += 1
             outFileName = outPrefix + (("_%d" % iOutFile) if args.split else "") + ".h5"
-            print("Writing output file %s..." % outFileName)
-
-            print(out_image.shape, out_labels.shape, out_weights.shape)
+            print("Writing output file %s..." % outFileName, end='')
 
             chunkSize = min(args.chunk, out_weights.shape[0])
             with h5py.File(outFileName, 'w', libver='latest') as outFile:
@@ -129,9 +127,9 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
                 print("  done")
 
             with h5py.File(outFileName, 'r') as outFile:
-                print("  created", outFileName)
-                print("  keys=", list(outFile.keys()))
-                print("  shape=", outFile['all_events']['images'].shape)
+                print("  created", outFileName, end='')
+                print("  keys=", list(outFile.keys()), end='')
+                print("  shape=", outFile['all_events']['images'].shape, end='')
 
             continue
 
