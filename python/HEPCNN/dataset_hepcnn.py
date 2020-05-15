@@ -59,7 +59,7 @@ class HEPCNNDataset(Dataset):
             else: weights = torch.ones(size)*weightValue
 
             nEventsInFile = len(weights)
-            self.maxEventsList.append(nEventsInFile)
+            self.maxEventsList.append(self.maxEventsList[-1]+nEventsInFile)
 
             labels  = torch.zeros(size) ## Put dummy labels, to set later by calling setProcessLabel()
             weights = torch.Tensor(weights[()])
