@@ -73,6 +73,7 @@ sysstat.update(annotation="start_loggin")
 sys.path.append("../python")
 from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
+sysstat.update(annotation="add samples")
 myDataset = MyDataset()
 myDataset.addSample("RPV_1400", "../data/CMS2018_unmerged/RPV/Gluino1400GeV/*/*.h5", weight=0.013/330599)
 #myDataset.addSample("QCD_HT700to1000" , "../data/CMS2018_unmerged/QCD/HT700to1000/*/*.h5", weight=???)
@@ -82,8 +83,10 @@ myDataset.addSample("QCD_HT2000toInf" , "../data/CMS2018_unmerged/QCD/HT2000toIn
 myDataset.setProcessLabel("RPV_1400", 1)
 myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0
 myDataset.setProcessLabel("QCD_HT2000toInf", 0) ## This is not necessary because the default is 0
+sysstat.update(annotation="init dataset")
 myDataset.initialize(nWorkers=args.nreader)
 
+sysstat.update(annotation="split dataset")
 lengths = [int(0.6*len(myDataset)), int(0.2*len(myDataset))]
 lengths.append(len(myDataset)-sum(lengths))
 trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
@@ -105,6 +108,7 @@ else:
     valLoader = DataLoader(valDataset, batch_size=512, shuffle=False, **kwargs)
 
 ## Build model
+sysstat.update(annotation="Model start")
 if args.model == 'original':
     from HEPCNN.torch_model_original import MyModel
 elif 'circpad' in args.model:
