@@ -89,7 +89,9 @@ myDataset.initialize(nWorkers=args.nreader)
 sysstat.update(annotation="split dataset")
 lengths = [int(0.6*len(myDataset)), int(0.2*len(myDataset))]
 lengths.append(len(myDataset)-sum(lengths))
+torch.manual_seed(123456)
 trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
+torch.manual_seed(torch.initial_seed())
 
 kwargs = {'num_workers':min(4, nthreads)}
 #kwargs = {'num_workers':nthreads}
