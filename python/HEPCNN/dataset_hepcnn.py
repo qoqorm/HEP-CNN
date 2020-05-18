@@ -81,10 +81,7 @@ class HEPCNNDataset(Dataset):
     def imageToTensor(self, fileIdx):
         fileName, imagesName = self.imagesList[fileIdx]
         data = h5py.File(fileName, 'r')['all_events']
-        images = data[imagesName]
-        t = torch.Tensor(images[()])
-        data = None
-        return fileIdx, t
+        return fileIdx, torch.Tensor(data[imagesName][()])
 
     def initialize(self, nWorkers=1, logger=None):
         if logger: logger.update(annotation='Reweights by category imbalance')
@@ -108,33 +105,28 @@ class HEPCNNDataset(Dataset):
 
         if logger: logger.update(annotation='Convert images to Tensor')
 
-        nWorkers = min(nWorkers, len(self.maxEventsList)-1)
+        nJobs = len(self.maxEventsList)-1
+        nWorkers = min(nWorkers, nJobs)
         if nWorkers > 1:
             env_kmp = environ['KMP_AFFINITY'] if 'KMP_AFFINITY' in environ else None
             if env_kmp != None: environ['KMP_AFFINITY'] = 'none'
             with futures.ProcessPoolExecutor(max_workers=nWorkers) as pool:
                 jobs = []
-                for fileIdx in range(len(self.maxEventsList)-1):
-                    fileName, imagesName = self.imagesList[fileIdx]
+                for fileIdx in range(nJobs):
                     job = pool.submit(self.imageToTensor, fileIdx)
                     jobs.append(job)
 
                 for job in futures.as_completed(jobs):
-                    try:
-                        fileIdx, images = job.result()
-                    except Exception as exc:
-                        print('file %d generated an exception: %s' % (fileIdx, exc))
-                    else:
-                        print(('file %d is shape' % (fileIdx)), images.shape)
+                    fileIdx, images = job.result()
                     self.imagesList[fileIdx] = images
             if env_kmp != None: environ['KMP_AFFINITY'] = env_kmp
         else:
-            for fileIdx in range(len(self.maxEventsList)-1):
+            for fileIdx in range(nJobs):
                 fileName, imagesName = self.imagesList[fileIdx]
                 fileIdx, images = self.imageToTensor(fileIdx)
                 self.imagesList[fileIdx] = images
 
-        for fileIdx in range(len(self.maxEventsList)-1):
+        for fileIdx in range(nJobs):
             #images  = torch.Tensor(self.imagesList[fileIdx][()])
             images = self.imagesList[fileIdx]
             self.shape = images.shape
