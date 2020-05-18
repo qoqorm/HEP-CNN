@@ -108,18 +108,31 @@ class HEPCNNDataset(Dataset):
 
         if logger: logger.update(annotation='Convert images to Tensor')
 
-        env_kmp = environ['KMP_AFFINITY'] if 'KMP_AFFINITY' in environ else None
-        environ['KMP_AFFINITY'] = 'none'
-        jobs = []
-        with futures.ProcessPoolExecutor(max_workers=nWorkers) as pool:
-            for fileIdx in range(len(self.maxEventsList)-1):
-                job = pool.submit(self.imageToTensor, fileIdx)
-                jobs.append(job)
+        nWorkers = min(nWorkers, len(self.maxEventsList)-1)
+        if nWorkers > 1:
+            env_kmp = environ['KMP_AFFINITY'] if 'KMP_AFFINITY' in environ else None
+            if env_kmp != None: environ['KMP_AFFINITY'] = 'none'
+            with futures.ProcessPoolExecutor(max_workers=nWorkers) as pool:
+                jobs = []
+                for fileIdx in range(len(self.maxEventsList)-1):
+                    fileName, imagesName = self.imagesList[fileIdx]
+                    job = pool.submit(self.imageToTensor, fileIdx)
+                    jobs.append(job)
 
-            for job in futures.as_completed(jobs):
-                fileIdx, images = job.result()
+                for job in futures.as_completed(jobs):
+                    try:
+                        fileIdx, images = job.result()
+                    except Exception as exc:
+                        print('file %d generated an exception: %s' % (fileIdx, exc))
+                    else:
+                        print(('file %d is shape' % (fileIdx)), images.shape)
+                    self.imagesList[fileIdx] = images
+            if env_kmp != None: environ['KMP_AFFINITY'] = env_kmp
+        else:
+            for fileIdx in range(len(self.maxEventsList)-1):
+                fileName, imagesName = self.imagesList[fileIdx]
+                fileIdx, images = self.imageToTensor(fileIdx)
                 self.imagesList[fileIdx] = images
-        if env_kmp != None: environ['KMP_AFFINITY'] = env_kmp
 
         for fileIdx in range(len(self.maxEventsList)-1):
             #images  = torch.Tensor(self.imagesList[fileIdx][()])
