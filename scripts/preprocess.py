@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('input', nargs='+', action='store', type=str, help='input file names')
 parser.add_argument('-o', '--output', action='store', type=str, help='output file name', required=True)
 parser.add_argument('--nevent', action='store', type=int, default=-1, help='number of events to preprocess')
-parser.add_argument('--nfiles', action='store', type=int, default=1, help='number of output files')
+parser.add_argument('--nfiles', action='store', type=int, default=0, help='number of output files')
 parser.add_argument('--format', action='store', choices=('NHWC', 'NCHW'), default='NHWC', help='image format for output (NHWC for TF default, NCHW for pytorch default)')
 parser.add_argument('-c', '--chunk', action='store', type=int, default=1024, help='chunk size')
 parser.add_argument('--nocompress', dest='nocompress', action='store_true', default=False, help='disable gzip compression')
@@ -20,11 +20,10 @@ args = parser.parse_args()
 
 srcFileNames = [x for x in args.input if x.endswith('.h5')]
 outPrefix, outSuffix = args.output.rsplit('.', 1)
-args.nfiles = max(args.nfiles, 1) ## nfiles should be not less than 1
 args.nevent = max(args.nevent, -1) ## nevent should be -1 to process everything or give specific value
 
 ## Logic for the arguments regarding on splitting
-##   split off: we will simply ignore nfiles parameter
+##   split off: we will simply ignore nfiles parameter => reset nfiles=1
 ##     nevent == -1: process all events store in one file
 ##     nevent != -1: process portion of events, store in one file
 ##   split on:
@@ -32,10 +31,13 @@ args.nevent = max(args.nevent, -1) ## nevent should be -1 to process everything 
 ##     nevent != -1, nfiles == 1: same as the one without splitting
 ##     nevent == -1, nfiles != 1: process all events, split into nfiles
 ##     nevent != -1, nfiles != 1: split files, limit total number of events to be nevent
+##     nevent != -1, nfiles == 0: split files by nevents for each files
 if not args.split or args.nfiles == 1:
     ## Just confirm the options for no-splitting case
     args.split = False
     args.nfiles = 1
+elif args.split and args.nevent > 0:
+    args.nfiles = 0
 
 ## First scan files to get total number of events
 print("@@@ Checking input files... (total %d files)" % (len(args.input)))
@@ -46,7 +48,11 @@ for srcFileName in srcFileNames:
     nEvent0 = data['hist'].shape[0]
     nEvent0s.append(nEvent0)
     nEventTotal += nEvent0
-nEventOutFile = int(ceil(nEventTotal/args.nfiles))
+if args.nfiles > 0:
+    nEventOutFile = int(ceil(nEventTotal/args.nfiles))
+else:
+    args.nfiles = int(ceil(nEventTotal/args.nevent))
+    nEventOutFile = min(nEventTotal, args.nevent)
 print("@@@ Total %d events to process, store into %d files (%d events per file)" % (nEventTotal, args.nfiles, nEventOutFile))
 
 print("@@@ Start processing...")
