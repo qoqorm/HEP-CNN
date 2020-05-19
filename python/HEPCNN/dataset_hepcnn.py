@@ -102,6 +102,13 @@ class HEPCNNDataset(Dataset):
         for procName, fileIdxs in self.procFiles.items():
             label = self.procLabels[procName]
             for i in fileIdxs: self.rescaleList[i] *= sumEByLabel[label]/sumWByLabel[label]
+        ## Find overall rescale for the data imbalancing problem - fit to the category with maximum entries
+        maxSumELabel = max(sumEByLabel, key=lambda key: sumEByLabel[key])
+        for procName, fileIdxs in self.procFiles.items():
+            label = self.procLabels[procName]
+            if label == maxSumELabel: continue
+            sf = sumEByLabel[maxSumELabel]/sumEByLabel[label]
+            for i in fileIdxs: self.rescaleList[i] *= sf
 
         if logger: logger.update(annotation='Convert images to Tensor')
 
