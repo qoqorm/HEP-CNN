@@ -108,6 +108,7 @@ class HEPCNNDataset(Dataset):
             label = self.procLabels[procName]
             if label == maxSumELabel: continue
             sf = sumEByLabel[maxSumELabel]/sumEByLabel[label]
+            print("@@@ Scale up the sample", label, "->", maxSumELabel, sf)
             for i in fileIdxs: self.rescaleList[i] *= sf
 
         if logger: logger.update(annotation='Convert images to Tensor')
