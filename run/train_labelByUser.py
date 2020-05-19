@@ -75,16 +75,18 @@ from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="add samples")
 myDataset = MyDataset()
-myDataset.addSample("RPV_1400", "../data/CMS2018_unmerged/RPV/Gluino1400GeV/*/*.h5", weight=0.013/330599)
-#myDataset.addSample("QCD_HT700to1000" , "../data/CMS2018_unmerged/QCD/HT700to1000/*/*.h5", weight=???)
-#myDataset.addSample("QCD_HT1000to1500", "../data/CMS2018_unmerged/QCD/HT1000to1500/*/*.h5", weight=1094./15466225)
-myDataset.addSample("QCD_HT1500to2000", "../data/CMS2018_unmerged/QCD/HT1500to2000/*/*.h5", weight=99.16/3199737)
-myDataset.addSample("QCD_HT2000toInf" , "../data/CMS2018_unmerged/QCD/HT2000toInf/*/*.h5", weight=20.25/1520178)
+basedir = "../data/CMS2018_unmerged/hdf5_noPU/"
+myDataset.addSample("RPV_1400", basedir+"RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
+#myDataset.addSample("QCD_HT700to1000" , basedir+"QCD/HT700to1000/*/*.h5", weight=???)
+myDataset.addSample("QCD_HT1000to1500", basedir+"QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
+myDataset.addSample("QCD_HT1500to2000", basedir+"QCDBkg/HT1500to2000/*.h5", weight=99.16/3199737)
+myDataset.addSample("QCD_HT2000toInf" , basedir+"QCDBkg/HT2000toInf/*.h5", weight=20.25/1520178)
 myDataset.setProcessLabel("RPV_1400", 1)
+myDataset.setProcessLabel("QCD_HT1000to1500", 0) ## This is not necessary because the default is 0
 myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0
 myDataset.setProcessLabel("QCD_HT2000toInf", 0) ## This is not necessary because the default is 0
 sysstat.update(annotation="init dataset")
-myDataset.initialize(nWorkers=args.nreader)
+myDataset.initialize(nWorkers=args.nreader, logger=sysstat)
 
 sysstat.update(annotation="split dataset")
 lengths = [int(0.6*len(myDataset)), int(0.2*len(myDataset))]
@@ -94,10 +96,9 @@ trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, l
 torch.manual_seed(torch.initial_seed())
 
 kwargs = {'num_workers':min(4, nthreads)}
-#kwargs = {'num_workers':nthreads}
-#if torch.cuda.is_available() and hvd:
-#    kwargs['num_workers'] = 1
-kwargs['pin_memory'] = True
+if torch.cuda.is_available():
+    #if hvd: kwargs['num_workers'] = 1
+    kwargs['pin_memory'] = True
 
 if hvd:
     trnSampler = torch.utils.data.distributed.DistributedSampler(trnDataset, num_replicas=hvd_size, rank=hvd_rank)

@@ -18,6 +18,7 @@ parser.add_argument('--batch', action='store', type=int, default=256, help='Batc
 parser.add_argument('-d', '--input', action='store', type=str, required=True, help='directory with pretrained model parameters')
 parser.add_argument('--model', action='store', choices=('default', 'log3ch', 'log5ch', 'original', 'circpad', 'circpadlog3ch', 'circpadlog5ch'),
                                default='default', help='choice of model')
+parser.add_argument('--nreader', action='store', type=int, default=1, help='Number of loaders')
 
 args = parser.parse_args()
 
@@ -31,15 +32,17 @@ if not os.path.exists(predFile):
     from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
     myDataset = MyDataset()
-    myDataset.addSample("RPV_1400", "../data/CMS2018_unmerged/RPV/Gluino1400GeV/*/*.h5", weight=0.013/330599)
-    #myDataset.addSample("QCD_HT700to1000" , "../data/CMS2018_unmerged/QCD/HT700to1000/*/*.h5", weight=???)
-    #myDataset.addSample("QCD_HT1000to1500", "../data/CMS2018_unmerged/QCD/HT1000to1500/*/*.h5", weight=1094./15466225)
-    myDataset.addSample("QCD_HT1500to2000", "../data/CMS2018_unmerged/QCD/HT1500to2000/*/*.h5", weight=99.16/3199737)
-    myDataset.addSample("QCD_HT2000toInf" , "../data/CMS2018_unmerged/QCD/HT2000toInf/*/*.h5", weight=20.25/1520178)
+    basedir = "../data/CMS2018_unmerged/hdf5_noPU/"
+    myDataset.addSample("RPV_1400", basedir+"RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
+    #myDataset.addSample("QCD_HT700to1000" , basedir+"QCD/HT700to1000/*/*.h5", weight=???)
+    myDataset.addSample("QCD_HT1000to1500", basedir+"QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
+    myDataset.addSample("QCD_HT1500to2000", basedir+"QCDBkg/HT1500to2000/*.h5", weight=99.16/3199737)
+    myDataset.addSample("QCD_HT2000toInf" , basedir+"QCDBkg/HT2000toInf/*.h5", weight=20.25/1520178)
     myDataset.setProcessLabel("RPV_1400", 1)
+    myDataset.setProcessLabel("QCD_HT1000to1500", 0) ## This is not necessary because the default is 0
     myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0
     myDataset.setProcessLabel("QCD_HT2000toInf", 0) ## This is not necessary because the default is 0
-    myDataset.initialize(nWorkers=10)
+    myDataset.initialize(nWorkers=args.nreader)
     print("done")
 
     print("Split data", end='')
@@ -50,7 +53,10 @@ if not os.path.exists(predFile):
     torch.manual_seed(torch.initial_seed())
     print("done")
 
-    kwargs = {'num_workers':min(4, nthreads)}#, 'pin_memory':True}
+    kwargs = {'num_workers':min(4, nthreads)}
+    if torch.cuda.is_available():
+        #if hvd: kwargs['num_workers'] = 1
+        kwargs['pin_memory'] = True
 
     testLoader = DataLoader(testDataset, batch_size=args.batch, shuffle=False, **kwargs)
 
@@ -81,7 +87,8 @@ if not os.path.exists(predFile):
     print('done')
 
     from tqdm import tqdm
-    labels, weights, preds = [], [], []
+    labels, preds = [], []
+    weights, scaledWeights = [], []
     for i, (data, label, weight, rescale) in enumerate(tqdm(testLoader)):
         data = data.float().to(device)
         weight = weight.float()
@@ -89,20 +96,34 @@ if not os.path.exists(predFile):
 
         labels.extend([x.item() for x in label])
         preds.extend([x.item() for x in pred.view(-1)])
-        weights.extend([x.item() for x in (weight*rescale).view(-1)])
-    df = pd.DataFrame({'label':labels, 'weight':weights, 'prediction':preds})
+        weights.extend([x.item() for x in weight.view(-1)])
+        scaledWeights.extend([x.item() for x in (weight*rescale).view(-1)])
+    df = pd.DataFrame({'label':labels, 'prediction':preds,
+                       'weight':weights, 'scaledWeight':scaledWeights})
     df.to_csv(predFile, index=False)
 
 from sklearn.metrics import roc_curve, roc_auc_score
 df = pd.read_csv(predFile)
-tpr, fpr, thr = roc_curve(df['label'], df['prediction'], pos_label=0)
-auc = roc_auc_score(df['label'], df['prediction'])
+tpr, fpr, thr = roc_curve(df['label'], df['prediction'], sample_weight=df['weight'], pos_label=0)
+auc = roc_auc_score(df['label'], df['prediction'], sample_weight=df['weight'])
 
 import matplotlib.pyplot as plt
 print(df.keys())
-df[df.label==0]['prediction'].hist(bins=100, alpha=0.7, color='red')
-df[df.label==1]['prediction'].hist(bins=100, alpha=0.7, color='blue')
+df_bkg = df[df.label==0]
+df_sig = df[df.label==1]
+
+hbkg1 = df_bkg['prediction'].plot(kind='hist', histtype='step', weights=df_bkg['weight'], bins=50, alpha=0.7, color='red', label='QCD')
+hsig1 = df_sig['prediction'].plot(kind='hist', histtype='step', weights=df_sig['weight'], bins=50, alpha=0.7, color='blue', label='RPV')
 plt.yscale('log')
+plt.ylabel('Events/(100)/(fb-1)')
+plt.legend()
+plt.show()
+
+hbkg2 = df_bkg['prediction'].plot(kind='hist', histtype='step', weights=df_bkg['scaledWeight'], bins=50, alpha=0.7, color='red', label='QCD')
+hsig2 = df_sig['prediction'].plot(kind='hist', histtype='step', weights=df_sig['scaledWeight'], bins=50, alpha=0.7, color='blue', label='RPV')
+plt.yscale('log')
+plt.ylabel('Arbitrary Unit')
+plt.legend()
 plt.show()
 
 plt.plot(fpr, tpr, '.-', label='%s %.3f' % (args.input, auc))
