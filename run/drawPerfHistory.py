@@ -16,6 +16,8 @@ parser.add_argument('dirs', type=str, nargs='+', action='store',
                     help="Directories with log messages")
 parser.add_argument('-a', '--annotation', action='store_true', default=False,
                     help="Add annotations")
+parser.add_argument('--tmax', action='store', type=float, default=0,
+                    help='Maximum time range')
 args = parser.parse_args()
 
 metrics = []
@@ -41,6 +43,9 @@ plt.rcParams['lines.markersize'] = 2
 
 plt.rcParams['figure.figsize'] = (7, len(metrics)*2)
 maxTime = 0
+if args.tmax > 0:
+    plt.xlim([0, args.tmax])
+    maxTime = args.tmax
 
 data = OrderedDict()
 for d in dirs:
@@ -64,7 +69,7 @@ for d in dirs:
             beginTime = min(usage['Datetime'])
 
             usage['time'] = (usage['Datetime']-beginTime).dt.total_seconds()
-            maxTime = max(max(usage['time']), maxTime)
+            maxTime = max(max(usage['time']), maxTime) if args.tmax <= 0 else args.tmax
             scale = metrics_opts[metric][1]
             usage[metric] /= scale
 
@@ -75,10 +80,8 @@ if len(dirs) > 1 or len(metrics) == 1:
     for metric in metrics:
         for i, d in enumerate(dirs):
             hostInfo, pars = d.split('/',1)
-            hostAlias, hostSpec = hostInfo.replace('perf_', '').split('_',1)
-
             ax = plt.subplot(len(dirs), 1, i+1)
-            if maxTime > 0: ax.set_xlim([0, maxTime*1.1])
+            if maxTime > 0: ax.set_xlim([0, maxTime])
             plt.title(pars.replace('__', ' '))
 
             for usage in data[metric][i]:
@@ -107,10 +110,8 @@ if len(metrics) > 1:
     for j, d in enumerate(dirs):
         for i, metric in enumerate(metrics):
             hostInfo, pars = d.split('/',1)
-            hostAlias, hostSpec = hostInfo.replace('perf_', '').split('_',1)
-
             ax = plt.subplot(len(metrics), 1, i+1)
-            #if maxTime > 0: ax.set_xlim([0, maxTime*1.1])
+            if maxTime > 0: ax.set_xlim([0, maxTime])
             #ax.set_xlim([0, 3000])
 
             for usage in data[metric][j]:
