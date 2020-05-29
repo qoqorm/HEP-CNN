@@ -56,7 +56,7 @@ else:
 print("@@@ Total %d events to process, store into %d files (%d events per file)" % (nEventTotal, args.nfiles, nEventOutFile))
 
 print("@@@ Start processing...")
-iOutFile = 0 ## For the output file index, out_1.h5 out_2.h5...
+outFileNames = []
 nEventToGo = nEventOutFile
 out_labels, out_weights, out_image = None, None, None
 for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
@@ -118,8 +118,9 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
             nEventToGo = nEventOutFile
             end = min(begin+nEventToGo, nEvent0)
 
-            iOutFile += 1
+            iOutFile = len(outFileNames)+1
             outFileName = outPrefix + (("_%d" % iOutFile) if args.split else "") + ".h5"
+            outFileNames.append(outFileName)
             print("Writing output file %s..." % outFileName, end='')
 
             chunkSize = min(args.chunk, out_weights.shape[0])
@@ -139,3 +140,7 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
 
             continue
 
+print(outFileNames)
+for outFileName in outFileNames:
+    f = h5py.File(outFileName, 'r')
+    print(outFileName, f['all_events/images'].shape)
