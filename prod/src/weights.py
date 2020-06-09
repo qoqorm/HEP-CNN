@@ -82,21 +82,21 @@ xaodRPVMetaDict = {
 }
 
 # Data from SUSYTools cross section file
-xaodBkgXsecData = np.genfromtxt('config/susy_crosssections_13TeV.txt',
+xaodBkgXsecData = np.genfromtxt('../config/susy_crosssections_13TeV.txt',
     dtype='i4,U50,f8,f8,f8,f8',
     names=['dsid', 'sample', 'xsec', 'kfac', 'eff', 'unc'])
 xaodBkgXsecDict = dict(zip(xaodBkgXsecData['dsid'],
     xaodBkgXsecData['xsec'] * xaodBkgXsecData['kfac'] * xaodBkgXsecData['eff']))
 
 # Sumw data prepared with dump_xaod_sumw.py
-xaodSumwData = np.genfromtxt('config/sumw.txt', dtype='i4, f8',
+xaodSumwData = np.genfromtxt('../config/sumw.txt', dtype='i4, f8',
                          names=['dsid', 'sumw'])
 xaodSumwDict = dict(zip(xaodSumwData['dsid'], xaodSumwData['sumw']))
 
 #-------------------------------------------------------------------------------
 # Delphes meta data
 #-------------------------------------------------------------------------------
-delphesXsecData = np.genfromtxt('config/DelphesXSec', dtype='S30, f8',
+delphesXsecData = np.genfromtxt('../config/DelphesXSec', dtype='S30, f8',
                                 names=['dsid', 'xsec'])
 delphesXsecDict = dict(delphesXsecData)
 
