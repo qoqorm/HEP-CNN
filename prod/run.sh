@@ -2,11 +2,11 @@
 
 ## Find out the job index and which file to process
 I=$((${2}+1))
-[ $I -gt `cat files.txt | wc -l` ] && exit ## Skip if job index exceeds number of files to process
-FILEIN=`cat files.txt | sed -n "${I}p"`
+DATASET=${1}
+[ $I -gt `cat samples/${DATASET}.txt | wc -l` ] && exit ## Skip if job index exceeds number of files to process
+FILEIN=`cat samples/${DATASET}.txt | sed -n "${I}p"`
 
 ## Set basic envvars - we need cmssw FWLite
-DATASET=${1}
 WORKDIR=$_CONDOR_JOB_IWD
 cd /cvmfs/cms.cern.ch/slc7_amd64_gcc820/cms/cmssw/CMSSW_10_6_12
 source /cvmfs/cms.cern.ch/cmsset_default.sh
@@ -30,12 +30,10 @@ echo "+ OUTDIR=$OUTDIR"
 df -h $WORKDIR
 df -h $TEMP
 
-## Run Delphes and do the simulation
+## Run Delphes and do the simulation and produce images for the no-pu case
 cd $WORKDIR/Delphes
 ./DelphesCMSFWLite $WORKDIR/cards/CMS_noPU.tcl $TEMP/delphes_noPU_${I}.root $FILEIN
-./DelphesCMSFWLite $WORKDIR/cards/CMS_32PU.tcl $TEMP/delphes_32PU_${I}.root $FILEIN
 
-## Run the scripts to produce images
 HEPCNNARGS="--input-type delphes --output-h5"
 cd $WORKDIR/atlas_dl/scripts
 
@@ -43,8 +41,18 @@ echo $TEMP/delphes_noPU_${I}.root > $TEMP/filelist.txt
 python ./prepare_data.py $HEPCNNARGS --bins  64 $OUTDIR/64x64_noPU/hepcnn_${I}.h5 $TEMP/filelist.txt
 python ./prepare_data.py $HEPCNNARGS --bins 224 $OUTDIR/224x224_noPU/hepcnn_${I}.h5 $TEMP/filelist.txt
 
+rm -f $TEMP/*.root $TEMP/*.h5
+
+## Run Delphes and do the simulation and produce images for the 32-pu case
+cd $WORKDIR/Delphes
+./DelphesCMSFWLite $WORKDIR/cards/CMS_32PU.tcl $TEMP/delphes_32PU_${I}.root $FILEIN
+
+HEPCNNARGS="--input-type delphes --output-h5"
+cd $WORKDIR/atlas_dl/scripts
+
 echo $TEMP/delphes_32PU_${I}.root > $TEMP/filelist.txt
 python ./prepare_data.py $HEPCNNARGS --bins  64 $OUTDIR/64x64_32PU/hepcnn_${I}.h5 $TEMP/filelist.txt
 python ./prepare_data.py $HEPCNNARGS --bins 224 $OUTDIR/224x224_32PU/hepcnn_${I}.h5 $TEMP/filelist.txt
 
-rm -f $TEMP/*
+## All done. clean up the temporary files.
+rm -f $TEMP/*.root $TEMP/*.h5
