@@ -33,13 +33,17 @@ df -h $_CONDOR_SCRATCH_DIR
 ## Run Delphes and do the simulation and produce images for the no-pu case
 cd $WORKDIR/Delphes
 ./DelphesCMSFWLite $WORKDIR/cards/CMS_noPU.tcl $_CONDOR_SCRATCH_DIR/delphes_noPU_${I}.root $FILEIN
+echo ls -alh $_CONDOR_SCRATCH_DIR
+ls -alh $_CONDOR_SCRATCH_DIR
 
-HEPCNNARGS="--input-type delphes --output-h5"
 cd $WORKDIR/atlas_dl/scripts
 
 echo $_CONDOR_SCRATCH_DIR/delphes_noPU_${I}.root > $_CONDOR_SCRATCH_DIR/filelist.txt
-python ./prepare_data.py $HEPCNNARGS --bins  64 $OUTDIR/64x64_noPU/hepcnn_${I}.h5 $_CONDOR_SCRATCH_DIR/filelist.txt
-python ./prepare_data.py $HEPCNNARGS --bins 224 $OUTDIR/224x224_noPU/hepcnn_${I}.h5 $_CONDOR_SCRATCH_DIR/filelist.txt
+cat $_CONDOR_SCRATCH_DIR/filelist.txt
+python ./prepare_data.py --bins  64 --input-type delphes --output-h5 $OUTDIR/64x64_noPU/hepcnn_${I}.h5 $_CONDOR_SCRATCH_DIR/filelist.txt
+python ./prepare_data.py --bins 224 --input-type delphes --output-h5 $OUTDIR/224x224_noPU/hepcnn_${I}.h5 $_CONDOR_SCRATCH_DIR/filelist.txt
+echo ls -alh $OUTDIR $OUTDIR/*_noPU
+ls -alh $OUTDIR $OUTDIR/*_noPU
 
 rm -f $_CONDOR_SCRATCH_DIR/*.root $_CONDOR_SCRATCH_DIR/*.h5
 
@@ -47,12 +51,11 @@ rm -f $_CONDOR_SCRATCH_DIR/*.root $_CONDOR_SCRATCH_DIR/*.h5
 cd $WORKDIR/Delphes
 ./DelphesCMSFWLite $WORKDIR/cards/CMS_32PU.tcl $_CONDOR_SCRATCH_DIR/delphes_32PU_${I}.root $FILEIN
 
-HEPCNNARGS="--input-type delphes --output-h5"
 cd $WORKDIR/atlas_dl/scripts
 
 echo $_CONDOR_SCRATCH_DIR/delphes_32PU_${I}.root > $_CONDOR_SCRATCH_DIR/filelist.txt
-python ./prepare_data.py $HEPCNNARGS --bins  64 $OUTDIR/64x64_32PU/hepcnn_${I}.h5 $_CONDOR_SCRATCH_DIR/filelist.txt
-python ./prepare_data.py $HEPCNNARGS --bins 224 $OUTDIR/224x224_32PU/hepcnn_${I}.h5 $_CONDOR_SCRATCH_DIR/filelist.txt
+python ./prepare_data.py --bins  64 --input-type delphes --output-h5 $OUTDIR/64x64_32PU/hepcnn_${I}.h5 $_CONDOR_SCRATCH_DIR/filelist.txt
+python ./prepare_data.py --bins 224 --input-type delphes --output-h5 $OUTDIR/224x224_32PU/hepcnn_${I}.h5 $_CONDOR_SCRATCH_DIR/filelist.txt
 
 ## All done. clean up the temporary files.
 rm -f $_CONDOR_SCRATCH_DIR/*.root $_CONDOR_SCRATCH_DIR/*.h5
