@@ -5,19 +5,18 @@ if [ ! -d /cvmfs ]; then
 	exit 1
 fi
 
-CMSSW_VERSION=CMSSW_10_6_1
+CMSSW_VERSION=CMSSW_10_6_12
 [ -d $CMSSW_VERSION ] || scram project CMSSW $CMSSW_VERSION
 cd $CMSSW_VERSION/src
 eval `scram runtime -sh`
 cd ../..
 
-SRCURL=http://cp3.irmp.ucl.ac.be/downloads/Delphes-3.4.1.tar.gz
+SRCURL=http://cp3.irmp.ucl.ac.be/downloads/Delphes-3.4.2.tar.gz
 TEMP=`basename $SRCURL`
-
-[ -f $TEMP ] || wget $SRCURL
-tar xzf $TEMP
 TEMP=`readlink -f ${TEMP/.tar.gz/}`
-ln -sf $TEMP Delphes
+[ -f ${TEMP}.tar.gz ] || wget $SRCURL
+[ -d ${TEMP} ] || tar xzf ${TEMP}.tar.gz
+[ -f Delphes ] || ln -sf $TEMP Delphes
 
 cd Delphes
 ./configure
