@@ -1,0 +1,15 @@
+universe = vanilla
+executable = run.sh
+arguments = TTbar $(Process) 
+error = log_$(Process).err
+output = log_$(Process).out
+log = submit.log
+
+transfer_input_files = files.txt,run.sh
+#transfer_output_files = 
+
+when_to_transfer_output = ON_EXIT
+JobBatchName = Delphes
+#queue 981
+queue 2
+
