@@ -10,6 +10,4 @@ transfer_input_files = samples/ttbar.txt,run.sh
 
 when_to_transfer_output = ON_EXIT
 JobBatchName = Delphes
-#queue 981
-queue 2
-
+queue 981

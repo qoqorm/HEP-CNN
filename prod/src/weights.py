@@ -117,7 +117,8 @@ def get_xaod_sumw(dsid):
 
 def get_delphes_xsec(dsid):
     # Convert to pb
-    return delphesXsecDict[dsid]*1e9
+    return 1
+    #return delphesXsecDict[dsid]*1e9
 
 def get_delphes_sumw(dsid):
     """NOT YET IMPLEMENTED; returns 1"""
