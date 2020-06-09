@@ -11,7 +11,7 @@ WORKDIR=$_CONDOR_JOB_IWD
 cd /cvmfs/cms.cern.ch/slc7_amd64_gcc820/cms/cmssw/CMSSW_10_6_12
 source /cvmfs/cms.cern.ch/cmsset_default.sh
 eval `scramv1 runtime -sh`
-cd $TEMP
+cd $_CONDOR_SCRATCH_DIR
 OUTDIR=$WORKDIR/../data/CMSDelphes/$DATASET
 if [ ! -d $OUTDIR ]; then
     mkdir -p $OUTDIR/64x64_noPU
@@ -28,31 +28,31 @@ echo "+ OUTDIR=$OUTDIR"
 
 ## Move to the Delphes directory
 df -h $WORKDIR
-df -h $TEMP
+df -h $_CONDOR_SCRATCH_DIR
 
 ## Run Delphes and do the simulation and produce images for the no-pu case
 cd $WORKDIR/Delphes
-./DelphesCMSFWLite $WORKDIR/cards/CMS_noPU.tcl $TEMP/delphes_noPU_${I}.root $FILEIN
+./DelphesCMSFWLite $WORKDIR/cards/CMS_noPU.tcl $_CONDOR_SCRATCH_DIR/delphes_noPU_${I}.root $FILEIN
 
 HEPCNNARGS="--input-type delphes --output-h5"
 cd $WORKDIR/atlas_dl/scripts
 
-echo $TEMP/delphes_noPU_${I}.root > $TEMP/filelist.txt
-python ./prepare_data.py $HEPCNNARGS --bins  64 $OUTDIR/64x64_noPU/hepcnn_${I}.h5 $TEMP/filelist.txt
-python ./prepare_data.py $HEPCNNARGS --bins 224 $OUTDIR/224x224_noPU/hepcnn_${I}.h5 $TEMP/filelist.txt
+echo $_CONDOR_SCRATCH_DIR/delphes_noPU_${I}.root > $_CONDOR_SCRATCH_DIR/filelist.txt
+python ./prepare_data.py $HEPCNNARGS --bins  64 $OUTDIR/64x64_noPU/hepcnn_${I}.h5 $_CONDOR_SCRATCH_DIR/filelist.txt
+python ./prepare_data.py $HEPCNNARGS --bins 224 $OUTDIR/224x224_noPU/hepcnn_${I}.h5 $_CONDOR_SCRATCH_DIR/filelist.txt
 
-rm -f $TEMP/*.root $TEMP/*.h5
+rm -f $_CONDOR_SCRATCH_DIR/*.root $_CONDOR_SCRATCH_DIR/*.h5
 
 ## Run Delphes and do the simulation and produce images for the 32-pu case
 cd $WORKDIR/Delphes
-./DelphesCMSFWLite $WORKDIR/cards/CMS_32PU.tcl $TEMP/delphes_32PU_${I}.root $FILEIN
+./DelphesCMSFWLite $WORKDIR/cards/CMS_32PU.tcl $_CONDOR_SCRATCH_DIR/delphes_32PU_${I}.root $FILEIN
 
 HEPCNNARGS="--input-type delphes --output-h5"
 cd $WORKDIR/atlas_dl/scripts
 
-echo $TEMP/delphes_32PU_${I}.root > $TEMP/filelist.txt
-python ./prepare_data.py $HEPCNNARGS --bins  64 $OUTDIR/64x64_32PU/hepcnn_${I}.h5 $TEMP/filelist.txt
-python ./prepare_data.py $HEPCNNARGS --bins 224 $OUTDIR/224x224_32PU/hepcnn_${I}.h5 $TEMP/filelist.txt
+echo $_CONDOR_SCRATCH_DIR/delphes_32PU_${I}.root > $_CONDOR_SCRATCH_DIR/filelist.txt
+python ./prepare_data.py $HEPCNNARGS --bins  64 $OUTDIR/64x64_32PU/hepcnn_${I}.h5 $_CONDOR_SCRATCH_DIR/filelist.txt
+python ./prepare_data.py $HEPCNNARGS --bins 224 $OUTDIR/224x224_32PU/hepcnn_${I}.h5 $_CONDOR_SCRATCH_DIR/filelist.txt
 
 ## All done. clean up the temporary files.
-rm -f $TEMP/*.root $TEMP/*.h5
+rm -f $_CONDOR_SCRATCH_DIR/*.root $_CONDOR_SCRATCH_DIR/*.h5
