@@ -75,8 +75,8 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
     image_t = data['histtrack']
 
     ## Preprocess image
-    image_e /= np.max(image_e)
-    image_t /= np.max(image_t)
+    #image_e /= np.max(image_e)
+    #image_t /= np.max(image_t)
 
     if args.debug and iSrcFile == 0:
         print("Build multi-channels image...")
