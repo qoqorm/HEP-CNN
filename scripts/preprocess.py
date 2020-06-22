@@ -20,7 +20,8 @@ parser.add_argument('-d', '--debug', action='store_true', default=False, help='d
 args = parser.parse_args()
 
 srcFileNames = [x for x in args.input if x.endswith('.h5')]
-outPrefix, outSuffix = args.output.rsplit('.', 1)
+if not args.output.endswith('.h5'): outPrefix, outSuffix = 'data', '.h5'
+else: outPrefix, outSuffix = args.output.rsplit('.', 1)
 args.nevent = max(args.nevent, -1) ## nevent should be -1 to process everything or give specific value
 
 ## Logic for the arguments regarding on splitting
