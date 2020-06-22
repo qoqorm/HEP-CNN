@@ -59,6 +59,7 @@ print("@@@ Total %d events to process, store into %d files (%d events per file)"
 
 print("@@@ Start processing...")
 outFileNames = []
+nEventProcessed = 0
 nEventToGo = nEventOutFile
 out_labels, out_weights, out_image = None, None, None
 for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
@@ -109,6 +110,7 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
 
         ## Do the processing
         nEventToGo -= (end-begin)
+        nEventProcessed += (end-begin)
 
         out_labels = np.concatenate([out_labels, labels[begin:end]])
         out_weights = np.concatenate([out_weights, weights[begin:end]])
@@ -116,7 +118,7 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
 
         begin, end = end, min(nEventToGo, nEvent0)
 
-        if nEventToGo <= 0 or len(outFileNames) == args.nfiles-1: ## Flush output and continue
+        if nEventToGo == 0 or nEventProcessed == nEventTotal: ## Flush output and continue
             nEventToGo = nEventOutFile
             end = min(begin+nEventToGo, nEvent0)
 
