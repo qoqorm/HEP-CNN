@@ -17,12 +17,14 @@ parser.add_argument('-c', '--chunk', action='store', type=int, default=1024, hel
 parser.add_argument('--nocompress', dest='nocompress', action='store_true', default=False, help='disable gzip compression')
 parser.add_argument('-s', '--split', action='store_true', default=False, help='split output file')
 parser.add_argument('-d', '--debug', action='store_true', default=False, help='debugging')
+parser.add_argument('--precision', action='store', choices=(8,16,32,64), default=32, help='Precision')
 args = parser.parse_args()
 
 srcFileNames = [x for x in args.input if x.endswith('.h5')]
 if not args.output.endswith('.h5'): outPrefix, outSuffix = args.output+'/data', '.h5'
 else: outPrefix, outSuffix = args.output.rsplit('.', 1)
 args.nevent = max(args.nevent, -1) ## nevent should be -1 to process everything or give specific value
+precision = 'f%d' % (args.precision/8)
 
 ## Logic for the arguments regarding on splitting
 ##   split off: we will simply ignore nfiles parameter => reset nfiles=1
@@ -131,9 +133,9 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
             with h5py.File(outFileName, 'w', libver='latest') as outFile:
                 g = outFile.create_group('all_events')
                 kwargs = {} if args.nocompress else {'compression':'gzip', 'compression_opts':9}
-                kwargs['dtype'] = 'f4'
+                kwargs['dtype'] = precision
                 g.create_dataset('images', data=out_image, chunks=((chunkSize,)+out_image.shape[1:]), **kwargs)
-                g.create_dataset('labels', data=out_labels, chunks=(chunkSize,), dtype='i4')
+                g.create_dataset('labels', data=out_labels, chunks=(chunkSize,), dtype='f4')
                 g.create_dataset('weights', data=out_weights, chunks=(chunkSize,), dtype='f4')
                 outFile.swmr_mode = True
                 if args.debug: print("  done")
