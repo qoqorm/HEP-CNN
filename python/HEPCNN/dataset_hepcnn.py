@@ -68,11 +68,6 @@ class HEPCNNDataset(Dataset):
             self.labelsList[i] = torch.ones(size, dtype=torch.float32, requires_grad=False)*label
             self.procLabels[procName] = label
 
-    def imageToTensor(self, fileIdx):
-        fileName, imagesName = self.imagesList[fileIdx]
-        data = h5py.File(fileName, 'r', libver='latest', swmr=True)['all_events']
-        return fileIdx, torch.Tensor(data[imagesName][()])
-
     def initialize(self, logger=None):
         if logger: logger.update(annotation='Reweights by category imbalance')
         ## Compute sum of weights for each label categories
