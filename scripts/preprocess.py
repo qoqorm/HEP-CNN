@@ -24,7 +24,7 @@ srcFileNames = [x for x in args.input if x.endswith('.h5')]
 if not args.output.endswith('.h5'): outPrefix, outSuffix = args.output+'/data', '.h5'
 else: outPrefix, outSuffix = args.output.rsplit('.', 1)
 args.nevent = max(args.nevent, -1) ## nevent should be -1 to process everything or give specific value
-precision = 'f%d' % (args.precision/8)
+precision = 'f%d' % (args.precision//8)
 
 ## Logic for the arguments regarding on splitting
 ##   split off: we will simply ignore nfiles parameter => reset nfiles=1
@@ -130,17 +130,16 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
             if args.debug: print("Writing output file %s..." % outFileName, end='')
 
             chunkSize = min(args.chunk, out_weights.shape[0])
-            with h5py.File(outFileName, 'w', libver='latest') as outFile:
+            with h5py.File(outFileName, 'w', libver='latest', swmr=True) as outFile:
                 g = outFile.create_group('all_events')
                 kwargs = {} if args.nocompress else {'compression':'gzip', 'compression_opts':9}
                 kwargs['dtype'] = precision
                 g.create_dataset('images', data=out_image, chunks=((chunkSize,)+out_image.shape[1:]), **kwargs)
                 g.create_dataset('labels', data=out_labels, chunks=(chunkSize,), dtype='f4')
                 g.create_dataset('weights', data=out_weights, chunks=(chunkSize,), dtype='f4')
-                outFile.swmr_mode = True
                 if args.debug: print("  done")
 
-            with h5py.File(outFileName, 'r') as outFile:
+            with h5py.File(outFileName, 'r', libver='latest', swmr=True) as outFile:
                 print(("  created %s (%d/%d)" % (outFileName, iOutFile, args.nfiles)), end='')
                 print("  keys=", list(outFile.keys()), end='')
                 print("  shape=", outFile['all_events']['images'].shape)
@@ -149,5 +148,5 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
 
 if args.debug:
     for outFileName in outFileNames:
-        f = h5py.File(outFileName, 'r')
+        f = h5py.File(outFileName, 'r', libver='latest', swmr=True)
         print(outFileName, f['all_events/images'].shape)
