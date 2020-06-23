@@ -29,9 +29,13 @@ parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Lear
 parser.add_argument('--batchPerStep', action='store', type=int, default=1, help='Number of batches per step (to emulate all-reduce)')
 parser.add_argument('--shuffle', action='store', type=bool, default=True, help='Shuffle batches for each epochs')
 parser.add_argument('--optimizer', action='store', choices=('sgd', 'adam', 'radam', 'ranger'), default='adam', help='optimizer to run')
-parser.add_argument('--model', action='store', choices=('default', 'log3ch', 'log5ch', 'original', 'circpad', 'circpadlog3ch', 'circpadlog5ch'), 
+parser.add_argument('--model', action='store', choices=('default', 'defaultnorm', 'defaultnormcat',
+                                                        'log3ch', 'log3chnorm', 'log3chnormcat',
+                                                        'log5ch', 'log5chnorm', 'log5chnormcat',
+                                                        'original', 
+                                                        'circpad', 'circpadlog3ch', 'circpadlog5ch'), 
                                default='default', help='choice of model')
-parser.add_argument('--nreader', action='store', type=int, default=1, help='Number of loaders')
+parser.add_argument('--device', action='store', type=int, default=-1, help='device name')
 
 args = parser.parse_args()
 
@@ -42,7 +46,8 @@ if hvd:
     hvd_size = hvd.size()
     print("Horovod is available. (rank=%d size=%d)" % (hvd_rank, hvd_size))
     #torch.manual_seed(args.seed)
-    #torch.cuda.set_device(hvd.local_rank())
+    if torch.cuda.is_available(): torch.cuda.set_device(hvd.local_rank())
+if args.device >= 0: torch.cuda.set_device(args.device)
 
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
 modelFile = os.path.join(args.outdir, 'model.pkl')
@@ -75,7 +80,8 @@ from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="add samples")
 myDataset = MyDataset()
-basedir = "../data/CMS2018_unmerged/hdf5_noPU/"
+basedir = "../data/CMS2018_nomixnocompress/hdf5_noPU_64x64/"
+#basedir = "../data/CMS2018_nomix/hdf5_noPU_64x64/"
 myDataset.addSample("RPV_1400", basedir+"RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
 #myDataset.addSample("QCD_HT700to1000" , basedir+"QCD/HT700to1000/*/*.h5", weight=???)
 myDataset.addSample("QCD_HT1000to1500", basedir+"QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
@@ -86,7 +92,7 @@ myDataset.setProcessLabel("QCD_HT1000to1500", 0) ## This is not necessary becaus
 myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0
 myDataset.setProcessLabel("QCD_HT2000toInf", 0) ## This is not necessary because the default is 0
 sysstat.update(annotation="init dataset")
-myDataset.initialize(nWorkers=args.nreader, logger=sysstat)
+myDataset.initialize(logger=sysstat)
 
 sysstat.update(annotation="split dataset")
 lengths = [int(0.6*len(myDataset)), int(0.2*len(myDataset))]
@@ -95,10 +101,11 @@ torch.manual_seed(123456)
 trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
 torch.manual_seed(torch.initial_seed())
 
-kwargs = {'num_workers':min(4, nthreads)}
-if torch.cuda.is_available():
-    #if hvd: kwargs['num_workers'] = 1
-    kwargs['pin_memory'] = True
+kwargs = {'num_workers':1, 'pin_memory':False}
+#kwargs = {'num_workers':min(4, nthreads), 'pin_memory':False}
+#if torch.cuda.is_available():
+#    #if hvd: kwargs['num_workers'] = 1
+#    kwargs['pin_memory'] = True
 
 if hvd:
     trnSampler = torch.utils.data.distributed.DistributedSampler(trnDataset, num_replicas=hvd_size, rank=hvd_rank)
