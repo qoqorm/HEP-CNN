@@ -131,9 +131,10 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
             with h5py.File(outFileName, 'w', libver='latest') as outFile:
                 g = outFile.create_group('all_events')
                 kwargs = {} if args.nocompress else {'compression':'gzip', 'compression_opts':9}
+                kwargs['dtype'] = 'f4'
                 g.create_dataset('images', data=out_image, chunks=((chunkSize,)+out_image.shape[1:]), **kwargs)
-                g.create_dataset('labels', data=out_labels, chunks=(chunkSize,))
-                g.create_dataset('weights', data=out_weights, chunks=(chunkSize,))
+                g.create_dataset('labels', data=out_labels, chunks=(chunkSize,), dtype='i4')
+                g.create_dataset('weights', data=out_weights, chunks=(chunkSize,), dtype='f4')
                 outFile.swmr_mode = True
                 if args.debug: print("  done")
 
