@@ -29,9 +29,9 @@ parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Lear
 parser.add_argument('--batchPerStep', action='store', type=int, default=1, help='Number of batches per step (to emulate all-reduce)')
 parser.add_argument('--shuffle', action='store', type=bool, default=True, help='Shuffle batches for each epochs')
 parser.add_argument('--optimizer', action='store', choices=('sgd', 'adam', 'radam', 'ranger'), default='adam', help='optimizer to run')
-parser.add_argument('--model', action='store', choices=('default', 'defaultnorm', 'defaultnormcat',
-                                                        'log3ch', 'log3chnorm', 'log3chnormcat',
-                                                        'log5ch', 'log5chnorm', 'log5chnormcat',
+parser.add_argument('--model', action='store', choices=('default', 'defaultabs', 'defaultcat',
+                                                        'log3ch', 'log3chabs', 'log3chcat',
+                                                        'log5ch', 'log5chabs', 'log5chcat',
                                                         'original', 
                                                         'circpad', 'circpadlog3ch', 'circpadlog5ch'), 
                                default='default', help='choice of model')
@@ -80,8 +80,7 @@ from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="add samples")
 myDataset = MyDataset()
-basedir = "../data/CMS2018_nomixnocompress/hdf5_noPU_64x64/"
-#basedir = "../data/CMS2018_nomix/hdf5_noPU_64x64/"
+basedir = "../data/hdf5_32PU_64x64/"
 myDataset.addSample("RPV_1400", basedir+"RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
 #myDataset.addSample("QCD_HT700to1000" , basedir+"QCD/HT700to1000/*/*.h5", weight=???)
 myDataset.addSample("QCD_HT1000to1500", basedir+"QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
