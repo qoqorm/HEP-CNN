@@ -8,6 +8,7 @@ from glob import glob
 class HEPCNNDataset(Dataset):
     def __init__(self, **kwargs):
         super(HEPCNNDataset, self).__init__()
+        self.isLoaded = False
         self.procFiles = {}
         self.procLabels = {}
 
@@ -18,6 +19,8 @@ class HEPCNNDataset(Dataset):
         self.rescaleList = []
 
     def __getitem__(self, idx):
+        if not self.isLoaded: self.load()
+
         fileIdx = bisect_right(self.maxEventsList, idx)-1
         offset = self.maxEventsList[fileIdx]
         idx = idx - offset
@@ -57,7 +60,7 @@ class HEPCNNDataset(Dataset):
 
             fileIdx = len(self.imagesList)
             self.procFiles[procName].append(fileIdx)
-            self.imagesList.append(images)
+            self.imagesList.append((fileName, ('images'+suffix)))
             self.labelsList.append(labels)
             self.weightsList.append(weights)
             self.rescaleList.append(torch.ones(size, dtype=torch.float32, requires_grad=False))
@@ -97,7 +100,8 @@ class HEPCNNDataset(Dataset):
             print("@@@ Scale up the sample", label, "->", maxSumELabel, sf)
             for i in fileIdxs: self.rescaleList[i] *= sf
 
-        self.shape = self.imagesList[0].shape[1:]
+        data = h5py.File(self.imagesList[0][0], 'r', libver='latest', swmr=True)['all_events']
+        self.shape = data[self.imagesList[0][1]].shape[1:]
         if self.shape[-1] <= 5: ## actual format was NHWC
             self.format = 'NHWC'
             self.height, self.width, self.channel = self.shape
@@ -105,3 +109,8 @@ class HEPCNNDataset(Dataset):
             self.format = 'NCHW'
             self.channel, self.height, self.width= self.shape
 
+    def load(self):
+        if self.isLoaded: return
+        for i, (fName, key) in enumerate(self.imagesList):
+            self.imagesList[i] = h5py.File(fName, 'r', libver='latest', swmr=True)['all_events/'+key]
+        self.isLoaded = True

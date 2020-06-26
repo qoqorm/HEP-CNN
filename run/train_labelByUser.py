@@ -80,7 +80,8 @@ from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="add samples")
 myDataset = MyDataset()
-basedir = "../data/hdf5_32PU_64x64/"
+#basedir = "../data/hdf5_noPU_224x224/"
+basedir = "../data/hdf5_32PU_224x224/"
 myDataset.addSample("RPV_1400", basedir+"RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
 #myDataset.addSample("QCD_HT700to1000" , basedir+"QCD/HT700to1000/*/*.h5", weight=???)
 myDataset.addSample("QCD_HT1000to1500", basedir+"QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
@@ -100,8 +101,8 @@ torch.manual_seed(123456)
 trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
 torch.manual_seed(torch.initial_seed())
 
-kwargs = {'num_workers':1, 'pin_memory':False}
-#kwargs = {'num_workers':min(4, nthreads), 'pin_memory':False}
+kwargs = {'num_workers':min(4, nthreads), 'pin_memory':False}
+#kwargs = {'pin_memory':True}
 #if torch.cuda.is_available():
 #    #if hvd: kwargs['num_workers'] = 1
 #    kwargs['pin_memory'] = True
@@ -114,7 +115,7 @@ if hvd:
 else:
     trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=args.shuffle, **kwargs)
     #valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=args.shuffle, **kwargs)
-    valLoader = DataLoader(valDataset, batch_size=512, shuffle=False, **kwargs)
+    valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=False, **kwargs)
 
 ## Build model
 sysstat.update(annotation="Model start")
