@@ -32,7 +32,7 @@ if not os.path.exists(predFile):
     from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
     myDataset = MyDataset()
-    basedir = "../data/CMS2018_unmerged/hdf5_noPU/"
+    basedir = "../data/hdf5_noPU_64x64/"
     myDataset.addSample("RPV_1400", basedir+"RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
     #myDataset.addSample("QCD_HT700to1000" , basedir+"QCD/HT700to1000/*/*.h5", weight=???)
     myDataset.addSample("QCD_HT1000to1500", basedir+"QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
@@ -42,7 +42,7 @@ if not os.path.exists(predFile):
     myDataset.setProcessLabel("QCD_HT1000to1500", 0) ## This is not necessary because the default is 0
     myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0
     myDataset.setProcessLabel("QCD_HT2000toInf", 0) ## This is not necessary because the default is 0
-    myDataset.initialize(nWorkers=args.nreader)
+    myDataset.initialize()
     print("done")
 
     print("Split data", end='')
