@@ -79,7 +79,7 @@ if len(dirs) > 1 or len(metrics) == 1:
     plt.rcParams['figure.figsize'] = (7, len(dirs)*2)
     for metric in metrics:
         for i, d in enumerate(dirs):
-            hostInfo, pars = d.split('/',1)
+            pars = d
             ax = plt.subplot(len(dirs), 1, i+1)
             if maxTime > 0: ax.set_xlim([0, maxTime])
             plt.title(pars.replace('__', ' '))
@@ -109,13 +109,12 @@ if len(metrics) > 1:
     plt.rcParams['figure.figsize'] = (7, len(metrics)*2)
     for j, d in enumerate(dirs):
         for i, metric in enumerate(metrics):
-            hostInfo, pars = d.split('/',1)
             ax = plt.subplot(len(metrics), 1, i+1)
             if maxTime > 0: ax.set_xlim([0, maxTime])
             #ax.set_xlim([0, 3000])
 
             for usage in data[metric][j]:
-                plt.plot(usage['time'], usage[metric], '.-', alpha=0.5)#, label=('rank%d'%ii))#, c=cols[i], label=(pars.replace('__', ' ')))
+                plt.plot(usage['time'], usage[metric], '.-', alpha=0.5)
 
                 if args.annotation:
                     for t, m, s in zip(usage['time'], usage[metric], usage['Annotation']):
