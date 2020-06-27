@@ -32,8 +32,10 @@ parser.add_argument('--optimizer', action='store', choices=('sgd', 'adam', 'rada
 parser.add_argument('--model', action='store', choices=('default', 'defaultnorm1', 'defaultnorm0', 'defaultcat', 'defaultnorm1cat',
                                                         'log3ch', 'log3chnorm1', 'log3chnorm0', 'log3chcat', 'log3chnorm1cat',
                                                         'log5ch', 'log5chnorm1', 'log5chnorm0', 'log5chcat', 'log5chnorm1cat',
-                                                        'original', 
-                                                        'circpad', 'circpadlog3ch', 'circpadlog5ch'), 
+                                                        'original',
+                                                        'circpad', 'circpadnorm1', 'circpadnorm0', 'circpadnorm1cat',
+                                                        'circpadlog3ch', 'circpadlog3chnorm1', 'circpadlog3chnorm0', 'circpadlog3chnorm1cat',
+                                                        'circpadlog5ch', 'circpadlog5chnorm1', 'circpadlog5chnorm0', 'circpadlog5chnorm1cat',),
                                default='default', help='choice of model')
 parser.add_argument('--device', action='store', type=int, default=-1, help='device name')
 
