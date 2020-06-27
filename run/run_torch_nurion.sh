@@ -35,7 +35,7 @@ export OMP_NUM_THREADS=64
 
 [ _$BATCH == _ ] && BATCH=32
 [ _$SELECT == _ ] && SELECT=50
-[ _$EPOCH == _ ] && EPOCH=1
+[ _$EPOCH == _ ] && EPOCH=50
 [ _$KMP_BLOCKTIME == _ ] && export KMP_BLOCKTIME=200
 [ _$MODEL == _ ] && MODEL=default
 [ _$SAMPLEDIR == _ ] && export SAMPLEDIR=/scratch/x1797a01/data/hdf5_noPU_64x64
