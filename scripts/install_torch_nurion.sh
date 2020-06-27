@@ -20,16 +20,10 @@ conda activate /scratch/$USER/conda/nurion_torch
 ## Just for once
 conda install -y numpy ninja pyyaml mkl mkl-include setuptools cmake cffi typing
 conda install -y h5py tqdm scikit-learn matplotlib pandas
+
+conda install -y -c intel mkl-dnn
+conda install -y -c pytorch pytorch cpuonly
 ##### Proceed ([y]/n)? y
 
-cd /scratch/$USER
-git clone --recursive https://github.com/pytorch/pytorch -b v1.4.0
-##### Takes long time to download linked packages?
+HOROVOD_WITH_MPI=1 HOROVOD_WITH_PYTORCH=1 pip install horovod
 
-cd pytorch
-git submodule sync
-git submodule update --init --recursive
-export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
-python setup.py install
-##### This takes even longer time to compile SW?
-cd ..
