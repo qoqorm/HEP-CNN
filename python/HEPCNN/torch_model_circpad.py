@@ -22,9 +22,9 @@ class MyModel(nn.Module):
 
         self.nch = 5 if '5ch' in model else 3
         self.doLog = ('log' in model)
-        if 'norm0' in model: self.doNorm = 0 ## do not normalize at all
-        elif 'norm1' in model: self.doNorm = 111 ## normalize all, 111
-        else: self.doNorm = 101 ## The default normalization: ecal and tracker
+        if 'norm0' in model: self.doNorm = 0b0 ## do not normalize at all
+        elif 'norm1' in model: self.doNorm = 0b111 ## normalize all, 111
+        else: self.doNorm = 0b101 ## The default normalization: ecal and tracker
         self.doCat = ('cat' in model)
 
         self.conv = []
@@ -90,9 +90,9 @@ class MyModel(nn.Module):
             x = x.permute(0,3,1,2)
             c = x.shape[1]
         s, _ = torch.max(x.view(n,c,-1), dim=-1)
-        if self.doNorm %   10 != 0: x[:,0,:,:] /= s[:,0,None,None]
-        if self.doNorm %  100 != 0: x[:,1,:,:] /= s[:,1,None,None]
-        if self.doNorm % 1000 != 0: x[:,2,:,:] /= s[:,2,None,None]
+        if self.doNorm &   0b1 != 0: x[:,0,:,:] /= s[:,0,None,None]
+        if self.doNorm &  0b10 != 0: x[:,1,:,:] /= s[:,1,None,None]
+        if self.doNorm & 0b100 != 0: x[:,2,:,:] /= s[:,2,None,None]
         if self.nch == 5:
             xx = x[:,:2,:,:]
             x = torch.cat((x, xx), dim=1)
