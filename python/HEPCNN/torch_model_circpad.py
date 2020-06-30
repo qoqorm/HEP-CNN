@@ -22,6 +22,10 @@ class MyModel(nn.Module):
 
         self.nch = 5 if '5ch' in model else 3
         self.doLog = ('log' in model)
+        if 'norm0' in model: self.doNorm = 0b0 ## do not normalize at all
+        elif 'norm1' in model: self.doNorm = 0b111 ## normalize all, 111
+        else: self.doNorm = 0b101 ## The default normalization: ecal and tracker
+        self.doCat = ('cat' in model)
 
         self.conv = []
 
@@ -73,7 +77,7 @@ class MyModel(nn.Module):
         self.conv = nn.Sequential(*self.conv)
 
         self.fc = nn.Sequential(
-            nn.Linear(self.fw*self.fh*256, 512),
+            nn.Linear(self.fw*self.fh*256 + (3 if self.doCat else 0), 512),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(512, 1),
@@ -81,6 +85,14 @@ class MyModel(nn.Module):
         )
 
     def forward(self, x):
+        n, c = x.shape[0], x.shape[1]
+        if c > 6: ## We don't expect image more than 6 channel, this indicates that the image format was NHWC.
+            x = x.permute(0,3,1,2)
+            c = x.shape[1]
+        s, _ = torch.max(x.view(n,c,-1), dim=-1)
+        if self.doNorm &   0b1 != 0: x[:,0,:,:] /= s[:,0,None,None]
+        if self.doNorm &  0b10 != 0: x[:,1,:,:] /= s[:,1,None,None]
+        if self.doNorm & 0b100 != 0: x[:,2,:,:] /= s[:,2,None,None]
         if self.nch == 5:
             xx = x[:,:2,:,:]
             x = torch.cat((x, xx), dim=1)
@@ -89,6 +101,7 @@ class MyModel(nn.Module):
 
         x = self.conv(x)
         x = x.view(-1, self.fw*self.fh*256)
+        if self.doCat: x = torch.cat([x, s], dim=-1)
         x = self.fc(x)
 
         return x

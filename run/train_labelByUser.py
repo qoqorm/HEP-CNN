@@ -29,11 +29,13 @@ parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Lear
 parser.add_argument('--batchPerStep', action='store', type=int, default=1, help='Number of batches per step (to emulate all-reduce)')
 parser.add_argument('--shuffle', action='store', type=bool, default=True, help='Shuffle batches for each epochs')
 parser.add_argument('--optimizer', action='store', choices=('sgd', 'adam', 'radam', 'ranger'), default='adam', help='optimizer to run')
-parser.add_argument('--model', action='store', choices=('default', 'defaultfixed', 'defaultcat', 'defaultfixedcat',
-                                                        'log3ch', 'log3chabs', 'log3chcat',
-                                                        'log5ch', 'log5chabs', 'log5chcat',
-                                                        'original', 
-                                                        'circpad', 'circpadlog3ch', 'circpadlog5ch'), 
+parser.add_argument('--model', action='store', choices=('default', 'defaultnorm1', 'defaultnorm0', 'defaultcat', 'defaultnorm1cat',
+                                                        'log3ch', 'log3chnorm1', 'log3chnorm0', 'log3chcat', 'log3chnorm1cat',
+                                                        'log5ch', 'log5chnorm1', 'log5chnorm0', 'log5chcat', 'log5chnorm1cat',
+                                                        'original',
+                                                        'circpad', 'circpadnorm1', 'circpadnorm0', 'circpadnorm1cat',
+                                                        'circpadlog3ch', 'circpadlog3chnorm1', 'circpadlog3chnorm0', 'circpadlog3chnorm1cat',
+                                                        'circpadlog5ch', 'circpadlog5chnorm1', 'circpadlog5chnorm0', 'circpadlog5chnorm1cat',),
                                default='default', help='choice of model')
 parser.add_argument('--device', action='store', type=int, default=-1, help='device name')
 
@@ -80,13 +82,12 @@ from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="add samples")
 myDataset = MyDataset()
-#basedir = "../data/hdf5_noPU_224x224/"
-basedir = "../data/hdf5_32PU_224x224/"
-myDataset.addSample("RPV_1400", basedir+"RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
-#myDataset.addSample("QCD_HT700to1000" , basedir+"QCD/HT700to1000/*/*.h5", weight=???)
-myDataset.addSample("QCD_HT1000to1500", basedir+"QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
-myDataset.addSample("QCD_HT1500to2000", basedir+"QCDBkg/HT1500to2000/*.h5", weight=99.16/3368613)
-myDataset.addSample("QCD_HT2000toInf" , basedir+"QCDBkg/HT2000toInf/*.h5", weight=20.25/3250016)
+basedir = os.environ['SAMPLEDIR'] if 'SAMPLEDIR' in  os.environ else "../data/hdf5_noPU_224x224/"
+myDataset.addSample("RPV_1400", basedir+"/RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
+#myDataset.addSample("QCD_HT700to1000" , basedir+"/QCD/HT700to1000/*/*.h5", weight=???)
+myDataset.addSample("QCD_HT1000to1500", basedir+"/QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
+myDataset.addSample("QCD_HT1500to2000", basedir+"/QCDBkg/HT1500to2000/*.h5", weight=99.16/3368613)
+myDataset.addSample("QCD_HT2000toInf" , basedir+"/QCDBkg/HT2000toInf/*.h5", weight=20.25/3250016)
 myDataset.setProcessLabel("RPV_1400", 1)
 myDataset.setProcessLabel("QCD_HT1000to1500", 0) ## This is not necessary because the default is 0
 myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0

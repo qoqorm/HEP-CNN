@@ -18,6 +18,7 @@ parser.add_argument('-a', '--annotation', action='store_true', default=False,
                     help="Add annotations")
 parser.add_argument('--tmax', action='store', type=float, default=0,
                     help='Maximum time range')
+parser.add_argument('-n', '--nodes', type=int, action='store', default=64, help='Maximum number of nodes to draw')
 args = parser.parse_args()
 
 metrics = []
@@ -55,7 +56,7 @@ for d in dirs:
 
         data[metric].append([])
 
-        for ii in range(64):
+        for ii in range(args.nodes):
             suffix = ".csv"
             if not os.path.exists('%s/resourceByCP_%d.csv' % (d, ii)):
                 if os.path.exists('%s/resourceByCP_%d.csv.gz' % (d, ii)): suffix = ".csv.gz"

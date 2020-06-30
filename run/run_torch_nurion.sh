@@ -33,17 +33,17 @@ export OMPI_MCA_btl_openib_if_include="hfi1_0:1"
 export LD_LIBRARY_PATH=/opt/pbs/lib:$LD_LIBRARY_PATH
 export OMP_NUM_THREADS=64
 
-[ _$MPIPROC == _ ] && MPIPROC=1
-[ _$NTHREAD == _ ] && NTHREAD=8
 [ _$BATCH == _ ] && BATCH=32
-[ _$SELECT == _ ] && SELECT=1
-[ _$KMP_BLOCKTIME == _ ] && KMP_BLOCKTIME=200
-OUTDIR=perf_nurion_KNL_torch/KMPBLOCKTIME_${KMP_BLOCKTIME}__SELECT_${SELECT}__MPIPROC_${MPIPROC}__THREADS_${NTHREAD}__BATCH_${BATCH}
+[ _$SELECT == _ ] && SELECT=50
+[ _$EPOCH == _ ] && EPOCH=50
+[ _$KMP_BLOCKTIME == _ ] && export KMP_BLOCKTIME=200
+[ _$MODEL == _ ] && MODEL=default
+[ _$SAMPLEDIR == _ ] && export SAMPLEDIR=/scratch/x1797a01/data/hdf5_noPU_64x64
+OUTDIR=hepcnn_${MODEL}_32PU_64x64/SELECT_${SELECT}__BATCH_${BATCH}
 
 [ _$PBS_O_WORKDIR != _ ] && cd $PBS_O_WORKDIR
 [ -d $OUTDIR ] || mkdir -p $OUTDIR
-mpirun -np $MPIPROC -env OMP_NUM_THREADS $NTHREAD \
-    python train_torch.py -o $OUTDIR \
-           --epoch 50 --batch $BATCH \
-           -t ../data/NERSC_preproc/train.h5 -v ../data/NERSC_preproc/val.h5 \
+mpirun -np $SELECT -env OMP_NUM_THREADS $OMP_NUM_THREADS \
+    python train_labelByUser.py -o $OUTDIR \
+           --epoch $EPOCH --batch $BATCH \
 
