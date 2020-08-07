@@ -14,11 +14,10 @@ parser.add_argument('--nevent', action='store', type=int, default=-1, help='numb
 parser.add_argument('--nfiles', action='store', type=int, default=0, help='number of output files')
 parser.add_argument('--format', action='store', choices=('NHWC', 'NCHW'), default='NHWC', help='image format for output (NHWC for TF default, NCHW for pytorch default)')
 parser.add_argument('-c', '--chunk', action='store', type=int, default=1024, help='chunk size')
-#parser.add_argument('--nocompress', dest='nocompress', action='store_true', default=False, help='disable gzip compression')
 parser.add_argument('--compress', action='store', choices=('gzip', 'lzf', 'none'), default='none', help='compression algorithm')
 parser.add_argument('-s', '--split', action='store_true', default=False, help='split output file')
 parser.add_argument('-d', '--debug', action='store_true', default=False, help='debugging')
-parser.add_argument('--precision', action='store', choices=(8,16,32,64), default=32, help='Precision')
+parser.add_argument('--precision', action='store', type=int, choices=(8,16,32,64), default=32, help='Precision')
 args = parser.parse_args()
 
 srcFileNames = [x for x in args.input if x.endswith('.h5')]
