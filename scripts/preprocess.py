@@ -81,6 +81,7 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
     image_h = data['hist']
     image_e = data['histEM']
     image_t = data['histtrack']
+    image_pt = data['histtrackPt']
 
     ## Preprocess image
     #image_e /= np.max(image_e)
@@ -88,18 +89,20 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
 
     if args.debug and iSrcFile == 0:
         print("Build multi-channels image...")
-        print("  Input image shape from the 1st file =", image_h.shape, image_e.shape, image_t.shape)
+        print("  Input image shape from the 1st file =", image_h.shape, image_e.shape, image_t.shape, image_pt.shape)
 
     if args.format == 'NHWC':
         image_h = np.expand_dims(image_h, -1)
         image_e = np.expand_dims(image_e, -1)
         image_t = np.expand_dims(image_t, -1)
-        image = np.concatenate([image_h, image_e, image_t], axis=-1)
+        image_pt = np.expand_dims(image_pt, -1)
+        image = np.concatenate([image_h, image_e, image_t, image_pt], axis=-1)
     else: ## for the NCHW
         image_h = np.expand_dims(image_h, 1)
         image_e = np.expand_dims(image_e, 1)
         image_t = np.expand_dims(image_t, 1)
-        image = np.concatenate([image_h, image_e, image_t], axis=1)
+        image_pt = np.expand_dims(image_pt, 1)
+        image = np.concatenate([image_h, image_e, image_t, image_pt], axis=1)
 
     if args.debug and iSrcFile == 0:
         print("  Output image format=", args.format)
