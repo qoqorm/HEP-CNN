@@ -6,11 +6,13 @@ parser.add_argument('--type', action='store', type=str, choices=('trackpt', 'tra
 parser.add_argument('--device', action='store', type=int, default=-1, help='device name')
 args = parser.parse_args()
 
-xmaxs = [1e5, 1e5, 20]
+xmaxs = [5e3, 5e3, 20]
 nbinsx = [50, 50, 20]
+units = [1e-3, 1e-3, 1]
 if args.type == 'trackpt':
-    xmaxs[2] = 1e5
-    nbinsx[2] = 100
+    xmaxs[2] = xmaxs[0]
+    nbinsx[2] = nbinsx[0]
+    units[2] = units[0]
 
 import torch
 device = 'cpu'
@@ -50,19 +52,6 @@ testLoader = DataLoader(testDataset, batch_size=args.batch, shuffle=False, **kwa
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-"""imgSum_trn = None
-for i, (data, label, weight, rescale) in enumerate(tqdm(trnLoader)):
-    #data = data.float().to(device)
-    #label = label.float().to(device)
-    #rescale = rescale.float().to(device)
-    #weight = weight.float().to(device)*rescale
-    w = (weight*rescale).float()
-
-    for image in data:
-        if imgSum_trn == None: imgSum_trn = torch.zeros(image.shape)
-        imgSum_trn += image
-print(imgSum_trn)
-"""
 
 bins = [None, None, None]
 imgHist_val_sig = [np.zeros(nbinsx[i]) for i in range(3)]
@@ -78,7 +67,7 @@ for i, (data, label, weight, rescale) in enumerate(tqdm(valLoader)):
 
         ww = np.ones(image.shape)*w.numpy()
         for c in range(3):
-            y, b = np.histogram(image[c], weights=ww[c], bins=nbinsx[c], range=(0.,xmaxs[c]))
+            y, b = np.histogram(image[c]*units[c], weights=ww[c], bins=nbinsx[c], range=(0.,xmaxs[c]))
             if bins[c] is None: bins[c] = b
             imgHist_val_sig[c] += y
 
@@ -89,22 +78,22 @@ for i, (data, label, weight, rescale) in enumerate(tqdm(valLoader)):
 
         ww = np.ones(image.shape)*w.numpy()
         for c in range(3):
-            y, b = np.histogram(image[c], weights=ww[c], bins=nbinsx[c], range=(0.,xmaxs[c]))
+            y, b = np.histogram(image[c]*units[c], weights=ww[c], bins=nbinsx[c], range=(0.,xmaxs[c]))
             if bins[c] is None: bins[c] = b
             imgHist_val_bkg[c] += y
-    #break
 
-fig, ax = plt.subplots(1, 3, figsize=(15,5))
+fig, ax = plt.subplots(1, 3, figsize=(9,3))
 for c in range(3):
     ax[c].set_yscale('log')
     ax[c].plot(bins[c][2:], imgHist_val_sig[c][1:], drawstyle='steps-post', label="signal")
     ax[c].plot(bins[c][2:], imgHist_val_bkg[c][1:], drawstyle='steps-post', label="background")
 fig.show()
 
-maxZ = max(x.max() for x in (imgSum_val_sig, imgSum_val_bkg))
+maxZ = [max([x.max() for x in (imgSum_val_sig[c], imgSum_val_bkg[c])]+[2.0]) for c in range(3)]
+minZ = [min([x.min()+1e-15 for x in (imgSum_val_sig[c], imgSum_val_bkg[c])]+[1.0, maxZ[c]]) for c in range(3)]
 from matplotlib.colors import LogNorm
-fig, ax = plt.subplots(2,3, figsize=(15,10))
-for i in range(3):
-    ax[0,i].imshow(imgSum_val_sig[i], cmap='gist_heat', norm=LogNorm(vmin=1, vmax=maxZ))
-    ax[1,i].imshow(imgSum_val_bkg[i], cmap='gist_heat', norm=LogNorm(vmin=1, vmax=maxZ))
+fig, ax = plt.subplots(2,3, figsize=(9,6))
+for c in range(3):
+    ax[0,c].imshow(imgSum_val_sig[c], cmap='gist_heat', norm=LogNorm(vmin=minZ[c], vmax=maxZ[c]))
+    ax[1,c].imshow(imgSum_val_bkg[c], cmap='gist_heat', norm=LogNorm(vmin=minZ[c], vmax=maxZ[c]))
 fig.show()
