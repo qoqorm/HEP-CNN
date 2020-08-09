@@ -16,8 +16,8 @@ torch.set_num_threads(nthreads)
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch', action='store', type=int, default=256, help='Batch size')
 parser.add_argument('-d', '--input', action='store', type=str, required=True, help='directory with pretrained model parameters')
-parser.add_argument('--model', action='store', choices=('default', 'log3ch', 'log5ch', 'original', 'circpad', 'circpadlog3ch', 'circpadlog5ch'),
-                               default='default', help='choice of model')
+parser.add_argument('--model', action='store', choices=('none', 'default', 'log3ch', 'log5ch', 'original', 'circpad', 'circpadlog3ch', 'circpadlog5ch'),
+                               default='none', help='choice of model')
 parser.add_argument('--device', action='store', type=int, default=-1, help='device name')
 
 args = parser.parse_args()
@@ -62,7 +62,7 @@ if torch.cuda.is_available():
 testLoader = DataLoader(testDataset, batch_size=args.batch, shuffle=False, **kwargs)
 
 print("Load model", end='')
-if os.path.exists(args.input+'/model.pkl'):
+if args.model == 'none':
     print("Load saved model from", (args.input+'/model.pkl'))
     model = torch.load(args.input+'/model.pkl', map_location='cpu')
 else:
