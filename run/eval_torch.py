@@ -18,89 +18,90 @@ parser.add_argument('--batch', action='store', type=int, default=256, help='Batc
 parser.add_argument('-d', '--input', action='store', type=str, required=True, help='directory with pretrained model parameters')
 parser.add_argument('--model', action='store', choices=('default', 'log3ch', 'log5ch', 'original', 'circpad', 'circpadlog3ch', 'circpadlog5ch'),
                                default='default', help='choice of model')
-parser.add_argument('--nreader', action='store', type=int, default=1, help='Number of loaders')
+parser.add_argument('--device', action='store', type=int, default=-1, help='device name')
 
 args = parser.parse_args()
 
 predFile = args.input+'/prediction.csv'
 import pandas as pd
 
-if not os.path.exists(predFile):
-    sys.path.append("../python")
+sys.path.append("../python")
 
-    print("Load data", end='')
-    from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
+print("Load data", end='')
+from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
-    myDataset = MyDataset()
-    basedir = "../data/hdf5_noPU_64x64/"
-    myDataset.addSample("RPV_1400", basedir+"RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
-    #myDataset.addSample("QCD_HT700to1000" , basedir+"QCD/HT700to1000/*/*.h5", weight=???)
-    myDataset.addSample("QCD_HT1000to1500", basedir+"QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
-    myDataset.addSample("QCD_HT1500to2000", basedir+"QCDBkg/HT1500to2000/*.h5", weight=99.16/3199737)
-    myDataset.addSample("QCD_HT2000toInf" , basedir+"QCDBkg/HT2000toInf/*.h5", weight=20.25/1520178)
-    myDataset.setProcessLabel("RPV_1400", 1)
-    myDataset.setProcessLabel("QCD_HT1000to1500", 0) ## This is not necessary because the default is 0
-    myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0
-    myDataset.setProcessLabel("QCD_HT2000toInf", 0) ## This is not necessary because the default is 0
-    myDataset.initialize()
-    print("done")
+myDataset = MyDataset()
+basedir = os.environ['SAMPLEDIR'] if 'SAMPLEDIR' in  os.environ else "../data/hdf5_32PU_224x224/"
+basedir+='/'
+myDataset.addSample("RPV_1400", basedir+"RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
+#myDataset.addSample("QCD_HT700to1000" , basedir+"QCD/HT700to1000/*/*.h5", weight=???)
+myDataset.addSample("QCD_HT1000to1500", basedir+"QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
+myDataset.addSample("QCD_HT1500to2000", basedir+"QCDBkg/HT1500to2000/*.h5", weight=99.16/3199737)
+myDataset.addSample("QCD_HT2000toInf" , basedir+"QCDBkg/HT2000toInf/*.h5", weight=20.25/1520178)
+myDataset.setProcessLabel("RPV_1400", 1)
+myDataset.setProcessLabel("QCD_HT1000to1500", 0) ## This is not necessary because the default is 0
+myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0
+myDataset.setProcessLabel("QCD_HT2000toInf", 0) ## This is not necessary because the default is 0
+myDataset.initialize()
+print("done")
 
-    print("Split data", end='')
-    lengths = [int(0.6*len(myDataset)), int(0.2*len(myDataset))]
-    lengths.append(len(myDataset)-sum(lengths))
-    torch.manual_seed(123456)
-    trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
-    torch.manual_seed(torch.initial_seed())
-    print("done")
+print("Split data", end='')
+lengths = [int(0.6*len(myDataset)), int(0.2*len(myDataset))]
+lengths.append(len(myDataset)-sum(lengths))
+torch.manual_seed(123456)
+trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
+torch.manual_seed(torch.initial_seed())
+print("done")
 
-    kwargs = {'num_workers':min(4, nthreads)}
-    if torch.cuda.is_available():
-        #if hvd: kwargs['num_workers'] = 1
-        kwargs['pin_memory'] = True
+if args.device >= 0: torch.cuda.set_device(args.device)
+kwargs = {'num_workers':min(4, nthreads)}
+if torch.cuda.is_available():
+    #if hvd: kwargs['num_workers'] = 1
+    kwargs['pin_memory'] = True
 
-    testLoader = DataLoader(testDataset, batch_size=args.batch, shuffle=False, **kwargs)
+testLoader = DataLoader(testDataset, batch_size=args.batch, shuffle=False, **kwargs)
 
-    print("Load model", end='')
-    if os.path.exists(args.input+'/model.pkl'):
-        print("Load saved model from", (args.input+'/model.pkl'))
-        model = torch.load(args.input+'/model.pkl')
+print("Load model", end='')
+if os.path.exists(args.input+'/model.pkl'):
+    print("Load saved model from", (args.input+'/model.pkl'))
+    model = torch.load(args.input+'/model.pkl', map_location='cpu')
+else:
+    print("Load the model", args.model)
+    if args.model == 'original':
+        from HEPCNN.torch_model_original import MyModel
+    elif 'circpad' in args.model:
+        from HEPCNN.torch_model_circpad import MyModel
     else:
-        print("Load the model", args.model)
-        if args.model == 'original':
-            from HEPCNN.torch_model_original import MyModel
-        elif 'circpad' in args.model:
-            from HEPCNN.torch_model_circpad import MyModel
-        else:
-            from HEPCNN.torch_model_default import MyModel
-        model = MyModel(testDataset.width, testDataset.height, model=args.model)
+        from HEPCNN.torch_model_default import MyModel
+    model = MyModel(testDataset.width, testDataset.height, model=args.model)
 
-    device = 'cpu'
-    if torch.cuda.is_available():
-        model = model.cuda()
-        device = 'cuda'
-    print('done')
+device = 'cpu'
+if torch.cuda.is_available():
+    model = model.cuda()
+    device = 'cuda'
+print('done')
 
-    model.load_state_dict(torch.load(args.input+'/weight_0.pkl'))
-    print('modify model', end='')
-    model.fc.add_module('output', torch.nn.Sigmoid())
-    model.eval()
-    print('done')
+model.load_state_dict(torch.load(args.input+'/weight_0.pkl', map_location='cpu'))
+print('modify model', end='')
+model.fc.add_module('output', torch.nn.Sigmoid())
+model.eval()
+print('done')
 
-    from tqdm import tqdm
-    labels, preds = [], []
-    weights, scaledWeights = [], []
-    for i, (data, label, weight, rescale) in enumerate(tqdm(testLoader)):
-        data = data.float().to(device)
-        weight = weight.float()
-        pred = model(data).detach().to('cpu').float()
+from tqdm import tqdm
+labels, preds = [], []
+weights, scaledWeights = [], []
+for i, (data, label, weight, rescale) in enumerate(tqdm(testLoader)):
+    data = data.float().to(device)
+    weight = weight.float()
+    pred = model(data).detach().to('cpu').float()
 
-        labels.extend([x.item() for x in label])
-        preds.extend([x.item() for x in pred.view(-1)])
-        weights.extend([x.item() for x in weight.view(-1)])
-        scaledWeights.extend([x.item() for x in (weight*rescale).view(-1)])
-    df = pd.DataFrame({'label':labels, 'prediction':preds,
-                       'weight':weights, 'scaledWeight':scaledWeights})
-    df.to_csv(predFile, index=False)
+    labels.extend([x.item() for x in label])
+    preds.extend([x.item() for x in pred.view(-1)])
+    weights.extend([x.item() for x in weight.view(-1)])
+    scaledWeights.extend([x.item() for x in (weight*rescale).view(-1)])
+df = pd.DataFrame({'label':labels, 'prediction':preds,
+                   'weight':weights, 'scaledWeight':scaledWeights})
+df.to_csv(predFile, index=False)
 
 from sklearn.metrics import roc_curve, roc_auc_score
 df = pd.read_csv(predFile)
@@ -121,7 +122,7 @@ plt.show()
 
 hbkg2 = df_bkg['prediction'].plot(kind='hist', histtype='step', weights=df_bkg['scaledWeight'], bins=50, alpha=0.7, color='red', label='QCD')
 hsig2 = df_sig['prediction'].plot(kind='hist', histtype='step', weights=df_sig['scaledWeight'], bins=50, alpha=0.7, color='blue', label='RPV')
-plt.yscale('log')
+#plt.yscale('log')
 plt.ylabel('Arbitrary Unit')
 plt.legend()
 plt.show()
