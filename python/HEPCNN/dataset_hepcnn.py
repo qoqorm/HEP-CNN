@@ -25,8 +25,9 @@ class HEPCNNDataset(Dataset):
         label  = self.labelsList[fileIdx][idx]
         weight = self.weightsList[fileIdx][idx]
         rescale = self.rescaleList[fileIdx][idx]
+        procIdx = self.procList[fileIdx][idx]
 
-        return (image, label, weight, rescale)
+        return (image, label, weight, rescale, procIdx)
 
     def __len__(self):
         return int(self.maxEventsList[-1])
@@ -53,10 +54,12 @@ class HEPCNNDataset(Dataset):
 
     def initialize(self, logger=None):
         if logger: logger.update(annotation='Reweights by category imbalance')
+        procNames = list(self.sampleInfo['procName'].unique())
 
         self.labelsList = []
         self.weightsList = []
         self.rescaleList = []
+        self.procList = []
         self.imagesList = []
 
         nFiles = len(self.sampleInfo)
@@ -82,40 +85,45 @@ class HEPCNNDataset(Dataset):
             weights = torch.ones(nEvents, dtype=torch.float32, requires_grad=False)*weight
             self.weightsList.append(weights)
             self.rescaleList.append(torch.ones(nEvents, dtype=torch.float32, requires_grad=False))
+            procIdx = procNames.index(self.sampleInfo['procName'][i])
+            self.procList.append(torch.ones(nEvents, dtype=torch.int32, requires_grad=False)*procIdx)
 
         print(self.sampleInfo)
+
+        ## Compute cumulative sums of nEvents, to be used for the file indexing
+        self.maxEventsList = np.concatenate(([0.], np.cumsum(self.sampleInfo['nEvents'])))
 
         ## Compute sum of weights for each label categories
         sumWByLabel = {}
         sumEByLabel = {}
         for label in self.sampleInfo['label']:
             label = int(label)
-            sumWByLabel[label] = self.sampleInfo[self.sampleInfo.label==label]['weight'].sum()
-            sumEByLabel[label] = self.sampleInfo[self.sampleInfo.label==label]['nEvents'].sum()
+            w = self.sampleInfo[self.sampleInfo.label==label]['weight']
+            e = self.sampleInfo[self.sampleInfo.label==label]['nEvents']
+            sumWByLabel[label] = (w*e).sum()
+            sumEByLabel[label] = e.sum()
         ## Find overall rescale for the data imbalancing problem - fit to the category with maximum entries
         maxSumELabel = max(sumEByLabel, key=lambda key: sumEByLabel[key])
         maxWMaxSumELabel = self.sampleInfo[self.sampleInfo.label==maxSumELabel]['weight'].max()
-
-        ## Compute cumulative sums of nEvents, to be used for the file indexing
-        self.maxEventsList = np.concatenate(([0.], np.cumsum(self.sampleInfo['nEvents'])))
-
-        #### Find rescale factors - make weight to be 1 for each cat in the training step
-        ## Find rescale factors - make average weight to be 1 for each cat in the training step
-        for fileIdx in self.sampleInfo['fileIdx']:
-            for l in self.sampleInfo.loc[self.sampleInfo.fileIdx==fileIdx, 'label']:
-                self.rescaleList[fileIdx] *= sumEByLabel[l]/sumWByLabel[l]
+        minWMaxSumELabel = self.sampleInfo[self.sampleInfo.label==maxSumELabel]['weight'].min()
+        avgWgtMaxSumELabel = sumWByLabel[maxSumELabel]/sumEByLabel[maxSumELabel]
 
         ## Find overall rescale for the data imbalancing problem - fit to the category with maximum entries
-        maxSumELabel = max(sumEByLabel, key=lambda key: sumEByLabel[key])
+        #### Find rescale factors - make weight to be 1 for each cat in the training step
         for fileIdx in self.sampleInfo['fileIdx']:
             label = self.sampleInfo.loc[self.sampleInfo.fileIdx==fileIdx, 'label']
             for l in label: ## this loop runs only once, by construction.
-                if l == maxSumELabel: break
-                #sf = sumWByLabel[maxSumELabel]/maxWMaxSumELabel/sumWByLabel[l]
-                sf = sumEByLabel[maxSumELabel]/sumEByLabel[l]
-                self.rescaleList[fileIdx] *= sf
+                self.rescaleList[fileIdx] *= (1./sumWByLabel[l])
                 #print("@@@ Scale sample label_%d(sumE=%g,sumW=%g)->label_%d, sf=%f" % (l, sumEByLabel[l], sumWByLabel[l], maxSumELabel, sf))
+                break ## this loop runs only once, by construction. this break is just for a confirmation
         
+        print('-'*80)
+        for label in sumWByLabel.keys():
+            print("Label=%d sumE=%d, sumW=%g" % (label, sumEByLabel[label], sumWByLabel[label]))
+        print('Label with maxSumE:%d' % maxSumELabel)
+        print('      maxWeight=%g minWeight=%g avgWeight=%g' % (maxWMaxSumELabel, minWMaxSumELabel, avgWgtMaxSumELabel))
+        print('-'*80)
+
         ## Check the image format
         fNameTemp = self.sampleInfo['fileName'][0]
         suffixTemp = self.sampleInfo['suffix'][0]

@@ -187,7 +187,7 @@ try:
         model.train()
         trn_loss, trn_acc = 0., 0.
         optm.zero_grad()
-        for i, (data, label, weight, rescale) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
+        for i, (data, label, weight, rescale, procIdx) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
             data = data.float().to(device)
             label = label.float().to(device)
             rescale = rescale.float().to(device)
@@ -211,7 +211,7 @@ try:
 
         model.eval()
         val_loss, val_acc = 0., 0.
-        for i, (data, label, weight, rescale) in enumerate(tqdm(valLoader)):
+        for i, (data, label, weight, rescale, procIdx) in enumerate(tqdm(valLoader)):
             data = data.float().to(device)
             label = label.float().to(device)
             rescale = rescale.float().to(device)

@@ -4,6 +4,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--batch', action='store', type=int, default=256, help='Batch size')
 parser.add_argument('--type', action='store', type=str, choices=('trackpt', 'trackcount'), default='trackcount', help='image type')
 parser.add_argument('--device', action='store', type=int, default=-1, help='device name')
+parser.add_argument('--noimage', action='store_true', default=False, help='draw event image')
 args = parser.parse_args()
 
 xmaxs = [5e3, 5e3, 20]
@@ -37,6 +38,8 @@ myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary becaus
 myDataset.setProcessLabel("QCD_HT2000toInf", 0) ## This is not necessary because the default is 0
 myDataset.initialize()
 
+procNames = myDataset.sampleInfo['procName'].unique()
+
 from torch.utils.data import DataLoader
 lengths = [int(0.6*len(myDataset)), int(0.2*len(myDataset))]
 lengths.append(len(myDataset)-sum(lengths))
@@ -44,7 +47,8 @@ torch.manual_seed(123456)
 trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
 torch.manual_seed(torch.initial_seed())
 
-kwargs = {'pin_memory':True, 'num_workers':4}
+kwargs = {'pin_memory':False, 'num_workers':8}
+allLoader = DataLoader(myDataset, batch_size=args.batch, shuffle=False, **kwargs)
 trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=False, **kwargs)
 valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=False, **kwargs)
 testLoader = DataLoader(testDataset, batch_size=args.batch, shuffle=False, **kwargs)
@@ -57,10 +61,35 @@ bins = [None, None, None]
 imgHist_val_sig = [np.zeros(nbinsx[i]) for i in range(3)]
 imgHist_val_bkg = [np.zeros(nbinsx[i]) for i in range(3)]
 imgSum_val_sig, imgSum_val_bkg = None, None
-for i, (data, label, weight, rescale) in enumerate(tqdm(valLoader)):
-    ws = (weight*rescale).float()
+sumE_sig, sumR_sig, sumW_sig = 0., 0., 0.
+sumE_bkg, sumR_bkg, sumW_bkg = 0., 0., 0.
+sumEs, sumRs, sumWs = {}, {}, {}
+for procName in procNames:
+    sumEs[procName] = 0.
+    sumRs[procName] = 0.
+    sumWs[procName] = 0.
 
-    for image, w in zip(data[label==1], ws[label==1]):
+for i, (data, labels, weights, rescales, procIdxs) in enumerate(tqdm(allLoader)):
+    ws = (weights*rescales).float()
+
+    for procIdx, procName in enumerate(procNames):
+        ww = ws[procIdxs==procIdx]
+        sumEs[procName] += len(ww)
+        sumRs[procName] += ww.sum()
+        sumWs[procName] += weights[procIdxs==procIdx].sum()
+
+        ww_sig = ws[(procIdxs==procIdx) & (labels==1)]
+        ww_bkg = ws[(procIdxs==procIdx) & (labels==0)]
+        sumE_sig += len(ww_sig)
+        sumE_bkg += len(ww_bkg)
+        sumR_sig += ww_sig.sum()
+        sumR_bkg += ww_bkg.sum()
+        sumW_sig += weights[(procIdxs==procIdx) & (labels==1)].sum()
+        sumW_bkg += weights[(procIdxs==procIdx) & (labels==0)].sum()
+
+    if args.noimage: continue
+
+    for image, w in zip(data[labels==1], ws[labels==1]):
         if imgSum_val_sig == None:
             imgSum_val_sig = torch.zeros(image.shape)
         imgSum_val_sig += image*w
@@ -71,7 +100,7 @@ for i, (data, label, weight, rescale) in enumerate(tqdm(valLoader)):
             if bins[c] is None: bins[c] = b
             imgHist_val_sig[c] += y
 
-    for image, w in zip(data[label==0], ws[label==0]):
+    for image, w in zip(data[labels==0], ws[labels==0]):
         if imgSum_val_bkg == None:
             imgSum_val_bkg = torch.zeros(image.shape)
         imgSum_val_bkg += image*w
@@ -81,6 +110,17 @@ for i, (data, label, weight, rescale) in enumerate(tqdm(valLoader)):
             y, b = np.histogram(image[c]*units[c], weights=ww[c], bins=nbinsx[c], range=(0.,xmaxs[c]))
             if bins[c] is None: bins[c] = b
             imgHist_val_bkg[c] += y
+
+print("-"*80)
+print("sumEvent : signal=%d bkg=%d" % (sumE_sig, sumE_bkg))
+print("sumResWgt: signal=%g bkg=%g" % (sumR_sig, sumR_bkg))
+print("sumWeight: signal=%g bkg=%g" % (sumW_sig, sumW_bkg))
+for procName in procNames:
+    print("proc=%s sumE=%d sumR=%g sumW=%g" % (procName, sumEs[procName], sumRs[procName], sumWs[procName]))
+print("-"*80)
+print("sum=", sum(sumEs.values()), sum(sumWs.values()).item())
+print("="*80)
+exit()
 
 fig, ax = plt.subplots(1, 3, figsize=(9,3))
 for c in range(3):
