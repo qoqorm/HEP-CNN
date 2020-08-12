@@ -37,7 +37,7 @@ parser.add_argument('--model', action='store', choices=('default', 'defaultnorm1
                                                         'circpadlog3ch', 'circpadlog3chnorm1', 'circpadlog3chnorm0', 'circpadlog3chnorm1cat',
                                                         'circpadlog5ch', 'circpadlog5chnorm1', 'circpadlog5chnorm0', 'circpadlog5chnorm1cat',),
                                default='default', help='choice of model')
-parser.add_argument('--device', action='store', type=int, default=-1, help='device name')
+parser.add_argument('--device', action='store', type=int, default=0, help='device name')
 
 args = parser.parse_args()
 
@@ -129,7 +129,7 @@ else:
 model = MyModel(myDataset.width, myDataset.height, model=args.model)
 if hvd_rank == 0: torch.save(model, modelFile)
 device = 'cpu'
-if torch.cuda.is_available():
+if args.device >= 0 and torch.cuda.is_available():
     model = model.cuda()
     device = 'cuda'
 

@@ -18,7 +18,7 @@ parser.add_argument('--batch', action='store', type=int, default=256, help='Batc
 parser.add_argument('-d', '--input', action='store', type=str, required=True, help='directory with pretrained model parameters')
 parser.add_argument('--model', action='store', choices=('none', 'default', 'log3ch', 'log5ch', 'original', 'circpad', 'circpadlog3ch', 'circpadlog5ch'),
                                default='none', help='choice of model')
-parser.add_argument('--device', action='store', type=int, default=-1, help='device name')
+parser.add_argument('--device', action='store', type=int, default=0, help='device name')
 
 args = parser.parse_args()
 
@@ -53,11 +53,12 @@ trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, l
 torch.manual_seed(torch.initial_seed())
 print("done")
 
-if args.device >= 0: torch.cuda.set_device(args.device)
 kwargs = {'num_workers':min(4, nthreads)}
-if torch.cuda.is_available():
-    #if hvd: kwargs['num_workers'] = 1
-    kwargs['pin_memory'] = True
+if args.device >= 0:
+    torch.cuda.set_device(args.device)
+    if torch.cuda.is_available():
+        #if hvd: kwargs['num_workers'] = 1
+        kwargs['pin_memory'] = True
 
 testLoader = DataLoader(testDataset, batch_size=args.batch, shuffle=False, **kwargs)
 
@@ -76,7 +77,7 @@ else:
     model = MyModel(testDataset.width, testDataset.height, model=args.model)
 
 device = 'cpu'
-if torch.cuda.is_available():
+if args.device >= 0 and torch.cuda.is_available():
     model = model.cuda()
     device = 'cuda'
 print('done')
@@ -90,7 +91,7 @@ print('done')
 from tqdm import tqdm
 labels, preds = [], []
 weights, scaledWeights = [], []
-for i, (data, label, weight, rescale) in enumerate(tqdm(testLoader)):
+for i, (data, label, weight, rescale, _) in enumerate(tqdm(testLoader)):
     data = data.float().to(device)
     weight = weight.float()
     pred = model(data).detach().to('cpu').float()
