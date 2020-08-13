@@ -12,13 +12,13 @@ parser.add_argument('input', nargs='+', action='store', type=str, help='input fi
 parser.add_argument('-o', '--output', action='store', type=str, help='output file name', required=True)
 parser.add_argument('--nevent', action='store', type=int, default=-1, help='number of events to preprocess')
 parser.add_argument('--nfiles', action='store', type=int, default=0, help='number of output files')
-parser.add_argument('--format', action='store', choices=('NHWC', 'NCHW'), default='NHWC', help='image format for output (NHWC for TF default, NCHW for pytorch default)')
+parser.add_argument('--format', action='store', choices=('NHWC', 'NCHW'), default='NCHW', help='image format for output (NHWC for TF default, NCHW for pytorch default)')
 parser.add_argument('-c', '--chunk', action='store', type=int, default=1024, help='chunk size')
-#parser.add_argument('--nocompress', dest='nocompress', action='store_true', default=False, help='disable gzip compression')
 parser.add_argument('--compress', action='store', choices=('gzip', 'lzf', 'none'), default='none', help='compression algorithm')
 parser.add_argument('-s', '--split', action='store_true', default=False, help='split output file')
 parser.add_argument('-d', '--debug', action='store_true', default=False, help='debugging')
-parser.add_argument('--precision', action='store', choices=(8,16,32,64), default=32, help='Precision')
+parser.add_argument('--precision', action='store', type=int, choices=(8,16,32,64), default=32, help='Precision')
+parser.add_argument('--dotrackpt', action='store_true', default=False, help='Choose track pt for the 3rd channel, rather than the track counts')
 args = parser.parse_args()
 
 srcFileNames = [x for x in args.input if x.endswith('.h5')]
@@ -80,7 +80,7 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
 
     image_h = data['hist']
     image_e = data['histEM']
-    image_t = data['histtrack']
+    image_t = data['histtrack' if not args.dotrackpt else 'histtrackPt']
 
     ## Preprocess image
     #image_e /= np.max(image_e)
@@ -115,6 +115,7 @@ for iSrcFile, (nEvent0, srcFileName) in enumerate(zip(nEvent0s, srcFileNames)):
             out_weights = np.ones(0)
             out_image = np.ones([0,*image.shape[1:]])
         ####
+        print(out_image.shape[0], end="\r")
 
         ## Do the processing
         nEventToGo -= (end-begin)

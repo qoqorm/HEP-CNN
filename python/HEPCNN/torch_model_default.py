@@ -53,7 +53,7 @@ class MyModel(nn.Module):
         if c > 6: ## We don't expect image more than 6 channel, this indicates that the image format was NHWC.
             x = x.permute(0,3,1,2)
             c = x.shape[1]
-        s, _ = torch.max(x.view(n,c,-1), dim=-1)
+        s, _ = torch.max(x.reshape(n,c,-1), dim=-1)
         if self.doNorm &   0b1 != 0: x[:,0,:,:] /= s[:,0,None,None]
         if self.doNorm &  0b10 != 0: x[:,1,:,:] /= s[:,1,None,None]
         if self.doNorm & 0b100 != 0: x[:,2,:,:] /= s[:,2,None,None]
@@ -62,8 +62,9 @@ class MyModel(nn.Module):
             x = torch.cat((x, xx), dim=1)
         if self.doLog:
             x[:,:2,:,:] = torch.log10(x[:,:2,:,:]/1e-5+1)
+
         x = self.conv(x)
-        x = x.view(-1, self.fw*self.fh*256)
+        x = x.flatten(start_dim=1)
         if self.doCat: x = torch.cat([x, s], dim=-1)
         x = self.fc(x)
         return x

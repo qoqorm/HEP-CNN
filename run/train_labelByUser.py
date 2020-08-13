@@ -37,7 +37,7 @@ parser.add_argument('--model', action='store', choices=('default', 'defaultnorm1
                                                         'circpadlog3ch', 'circpadlog3chnorm1', 'circpadlog3chnorm0', 'circpadlog3chnorm1cat',
                                                         'circpadlog5ch', 'circpadlog5chnorm1', 'circpadlog5chnorm0', 'circpadlog5chnorm1cat',),
                                default='default', help='choice of model')
-parser.add_argument('--device', action='store', type=int, default=-1, help='device name')
+parser.add_argument('--device', action='store', type=int, default=0, help='device name')
 
 args = parser.parse_args()
 
@@ -82,7 +82,7 @@ from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="add samples")
 myDataset = MyDataset()
-basedir = os.environ['SAMPLEDIR'] if 'SAMPLEDIR' in  os.environ else "../data/hdf5_noPU_224x224/"
+basedir = os.environ['SAMPLEDIR'] if 'SAMPLEDIR' in  os.environ else "../data/hdf5_32PU_224x224/"
 myDataset.addSample("RPV_1400", basedir+"/RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
 #myDataset.addSample("QCD_HT700to1000" , basedir+"/QCD/HT700to1000/*/*.h5", weight=???)
 myDataset.addSample("QCD_HT1000to1500", basedir+"/QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
@@ -129,7 +129,7 @@ else:
 model = MyModel(myDataset.width, myDataset.height, model=args.model)
 if hvd_rank == 0: torch.save(model, modelFile)
 device = 'cpu'
-if torch.cuda.is_available():
+if args.device >= 0 and torch.cuda.is_available():
     model = model.cuda()
     device = 'cuda'
 
@@ -187,7 +187,7 @@ try:
         model.train()
         trn_loss, trn_acc = 0., 0.
         optm.zero_grad()
-        for i, (data, label, weight, rescale) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
+        for i, (data, label, weight, rescale, procIdx) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
             data = data.float().to(device)
             label = label.float().to(device)
             rescale = rescale.float().to(device)
@@ -203,7 +203,7 @@ try:
                 optm.zero_grad()
 
             trn_loss += l.item()
-            trn_acc += accuracy_score(label.to('cpu'), np.where(pred.to('cpu') > 0.5, 1, 0))
+            trn_acc += accuracy_score(label.to('cpu'), np.where(pred.to('cpu') > 0.5, 1, 0), sample_weight=weight.to('cpu'))
 
             sysstat.update()
         trn_loss /= len(trnLoader)
@@ -211,7 +211,7 @@ try:
 
         model.eval()
         val_loss, val_acc = 0., 0.
-        for i, (data, label, weight, rescale) in enumerate(tqdm(valLoader)):
+        for i, (data, label, weight, rescale, procIdx) in enumerate(tqdm(valLoader)):
             data = data.float().to(device)
             label = label.float().to(device)
             rescale = rescale.float().to(device)
@@ -222,7 +222,7 @@ try:
             loss = crit(pred.view(-1), label)
 
             val_loss += loss.item()
-            val_acc += accuracy_score(label.to('cpu'), np.where(pred.to('cpu') > 0.5, 1, 0))
+            val_acc += accuracy_score(label.to('cpu'), np.where(pred.to('cpu') > 0.5, 1, 0), sample_weight=weight.to('cpu'))
         val_loss /= len(valLoader)
         val_acc  /= len(valLoader)
 
