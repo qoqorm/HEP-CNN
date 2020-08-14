@@ -23,8 +23,9 @@ class SysStat:
         #self.rsss = []
 
         if fileName != None:
-            self.writer = csv.writer(open(self.fileName, 'w'))
-            columns = ["CPU", "RSS", 'VMSize', "Read", "Write", "Annotation"]
+            self.outFile = open(self.fileName, 'w')
+            self.writer = csv.writer(self.outFile)
+            columns = ["Datetime", "CPU", "RSS", 'VMSize', "Read", "Write", "Annotation"]
             self.writer.writerow(columns)
 
         self.update()
@@ -52,7 +53,7 @@ class SysStat:
             totaltime = sum(int(x) for x in stattotal[1:]) ## cpu time in jiffies unit
 
         if self.totaltime != 0:
-            cpuFrac   = 100*self.nproc*float( (utime-self.utime) + (stime-self.stime) ) / (totaltime-self.totaltime)
+            cpuFrac   = 0 if totaltime == self.totaltime else 100*self.nproc*float( (utime-self.utime) + (stime-self.stime) ) / (totaltime-self.totaltime)
             readByte  = io_read-self.io_read
             writeByte = io_write-self.io_write
 
@@ -61,9 +62,12 @@ class SysStat:
             #self.writeBytes.append(writeByte)
             #self.rsss.append(rss)
 
-            stat = [cpuFrac, rss, vmsize, readByte, writeByte, annotation]
+            timestr = time.strftime("%Y-%m-%d %H-%M-%S", time.localtime())
+            stat = [timestr, cpuFrac, rss, vmsize, readByte, writeByte, annotation]
             if self.verbose: print(stat)
-            if hasattr(self, 'writer'): self.writer.writerow(stat)
+            if hasattr(self, 'writer'):
+                self.writer.writerow(stat)
+                self.outFile.flush()
 
         self.utime, self.stime, self.rss, self.vmsize = utime, stime, rss, vmsize
         self.io_read, self.io_write = io_read, io_write
