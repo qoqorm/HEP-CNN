@@ -227,9 +227,9 @@ try:
         val_acc  /= len(valLoader)
 
         if hvd: val_acc = metric_average(val_acc, 'avg_accuracy')
-        if bestAcc < val_acc:
+        if bestLoss < val_loss:
             bestModel = model.state_dict()
-            bestAcc = val_acc
+            bestLoss = val_loss
             if hvd_rank == 0:
                 torch.save(bestModel, weightFile)
                 sysstat.update(annotation="saved_model")
