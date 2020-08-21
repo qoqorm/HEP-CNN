@@ -24,6 +24,7 @@ parser.add_argument('-c', '--config', action='store', type=str, default='config.
 
 args = parser.parse_args()
 config = yaml.load(open(args.config).read(), Loader=yaml.FullLoader)
+lumiVal = args.lumi
 
 predFile = args.input+'/prediction.csv'
 import pandas as pd
@@ -80,6 +81,7 @@ if args.device >= 0 and torch.cuda.is_available():
 print('done')
 
 model.load_state_dict(torch.load(args.input+'/weight_0.pth', map_location='cpu'))
+model.to(device)
 print('modify model', end='')
 model.fc.add_module('output', torch.nn.Sigmoid())
 model.eval()
