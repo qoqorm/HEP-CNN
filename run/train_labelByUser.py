@@ -169,7 +169,7 @@ with open(args.outdir+'/summary.txt', 'w') as fout:
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
-bestModel, bestLoss = {}, -1
+bestModel, bestLoss = {}, 1e9
 try:
     timeHistory = TimeHistory()
     timeHistory.on_train_begin()
