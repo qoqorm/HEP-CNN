@@ -64,8 +64,8 @@ testLoader = DataLoader(testDataset, batch_size=args.batch, shuffle=False, **kwa
 
 print("Load model", end='')
 if args.model == 'none':
-    print("Load saved model from", (args.input+'/model.pkl'))
-    model = torch.load(args.input+'/model.pkl', map_location='cpu')
+    print("Load saved model from", (args.input+'/model.pth'))
+    model = torch.load(args.input+'/model.pth', map_location='cpu')
 else:
     print("Load the model", args.model)
     if args.model == 'original':
@@ -82,7 +82,7 @@ if args.device >= 0 and torch.cuda.is_available():
     device = 'cuda'
 print('done')
 
-model.load_state_dict(torch.load(args.input+'/weight_0.pkl', map_location='cpu'))
+model.load_state_dict(torch.load(args.input+'/weight_0.pth', map_location='cpu'))
 print('modify model', end='')
 model.fc.add_module('output', torch.nn.Sigmoid())
 model.eval()
