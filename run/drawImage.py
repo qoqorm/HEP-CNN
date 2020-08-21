@@ -27,11 +27,11 @@ from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
 myDataset = MyDataset()
 basedir = os.environ['SAMPLEDIR'] if 'SAMPLEDIR' in  os.environ else "../data/hdf5_32PU_224x224/"
-myDataset.addSample("RPV_1400", basedir+"/RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
-#myDataset.addSample("QCD_HT700to1000" , basedir+"/QCD/HT700to1000/*/*.h5", weight=???)
-myDataset.addSample("QCD_HT1000to1500", basedir+"/QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
-myDataset.addSample("QCD_HT1500to2000", basedir+"/QCDBkg/HT1500to2000/*.h5", weight=99.16/3368613)
-myDataset.addSample("QCD_HT2000toInf" , basedir+"/QCDBkg/HT2000toInf/*.h5", weight=20.25/3250016)
+myDataset.addSample("RPV_1400", basedir+"/RPV/Gluino1400GeV/*.h5", weight=0.0252977/330599)
+#myDataset.addSample("QCD_HT700to1000" , basedir+"/QCD/HT700to1000/*/*.h5", weight=6831/????)
+myDataset.addSample("QCD_HT1000to1500", basedir+"/QCDBkg/HT1000to1500/*.h5", weight=1207./15466225)
+myDataset.addSample("QCD_HT1500to2000", basedir+"/QCDBkg/HT1500to2000/*.h5", weight=119.9/3368613)
+myDataset.addSample("QCD_HT2000toInf" , basedir+"/QCDBkg/HT2000toInf/*.h5", weight=25.24/3250016)
 myDataset.setProcessLabel("RPV_1400", 1)
 myDataset.setProcessLabel("QCD_HT1000to1500", 0) ## This is not necessary because the default is 0
 myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0

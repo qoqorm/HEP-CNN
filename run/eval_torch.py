@@ -15,6 +15,7 @@ torch.set_num_threads(nthreads)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch', action='store', type=int, default=256, help='Batch size')
+parser.add_argument('--lumi', action='store', type=float, default=138, help='Reference luminosity in fb-1')
 parser.add_argument('-d', '--input', action='store', type=str, required=True, help='directory with pretrained model parameters')
 parser.add_argument('--model', action='store', choices=('none', 'default', 'log3ch', 'log5ch', 'original', 'circpad', 'circpadlog3ch', 'circpadlog5ch'),
                                default='none', help='choice of model')
@@ -114,10 +115,10 @@ print(df.keys())
 df_bkg = df[df.label==0]
 df_sig = df[df.label==1]
 
-hbkg1 = df_bkg['prediction'].plot(kind='hist', histtype='step', weights=df_bkg['weight'], bins=50, alpha=0.7, color='red', label='QCD')
-hsig1 = df_sig['prediction'].plot(kind='hist', histtype='step', weights=df_sig['weight'], bins=50, alpha=0.7, color='blue', label='RPV')
+hbkg1 = df_bkg['prediction'].plot(kind='hist', histtype='step', weights=1000*lumiVal*df_bkg['weight'], bins=50, alpha=0.7, color='red', label='QCD')
+hsig1 = df_sig['prediction'].plot(kind='hist', histtype='step', weights=1000*lumiVal*df_sig['weight'], bins=50, alpha=0.7, color='blue', label='RPV')
 plt.yscale('log')
-plt.ylabel('Events/(100)/(fb-1)')
+plt.ylabel('Events/(%f)/(fb-1)' % lumiVal)
 plt.legend()
 plt.show()
 
