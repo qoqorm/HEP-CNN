@@ -52,8 +52,8 @@ if hvd:
 if args.device >= 0: torch.cuda.set_device(args.device)
 
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
-modelFile = os.path.join(args.outdir, 'model.pkl')
-weightFile = os.path.join(args.outdir, 'weight_%d.pkl' % hvd_rank)
+modelFile = os.path.join(args.outdir, 'model.pth')
+weightFile = os.path.join(args.outdir, 'weight_%d.pth' % hvd_rank)
 predFile = os.path.join(args.outdir, 'predict_%d.npy' % hvd_rank)
 trainingFile = os.path.join(args.outdir, 'history_%d.csv' % hvd_rank)
 resourceByCPFile = os.path.join(args.outdir, 'resourceByCP_%d.csv' % hvd_rank)
@@ -233,6 +233,7 @@ try:
             if hvd_rank == 0:
                 torch.save(bestModel, weightFile)
                 sysstat.update(annotation="saved_model")
+            model.to(device)
 
         timeHistory.on_epoch_end()
         sysstat.update(annotation='epoch_end')
