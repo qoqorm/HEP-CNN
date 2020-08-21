@@ -83,15 +83,15 @@ from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 sysstat.update(annotation="add samples")
 myDataset = MyDataset()
 basedir = os.environ['SAMPLEDIR'] if 'SAMPLEDIR' in  os.environ else "../data/hdf5_32PU_224x224/"
-myDataset.addSample("RPV_1400", basedir+"/RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
-#myDataset.addSample("QCD_HT700to1000" , basedir+"/QCD/HT700to1000/*/*.h5", weight=???)
-myDataset.addSample("QCD_HT1000to1500", basedir+"/QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
-myDataset.addSample("QCD_HT1500to2000", basedir+"/QCDBkg/HT1500to2000/*.h5", weight=99.16/3368613)
-myDataset.addSample("QCD_HT2000toInf" , basedir+"/QCDBkg/HT2000toInf/*.h5", weight=20.25/3250016)
+myDataset.addSample("RPV_1400", basedir+"/RPV/Gluino1400GeV/*.h5", weight=0.0252977/330599)
+#myDataset.addSample("QCD_HT700to1000" , basedir+"/QCD/HT700to1000/*/*.h5", weight=6831/????)
+myDataset.addSample("QCD_HT1000to1500", basedir+"/QCDBkg/HT1000to1500/*.h5", weight=1207./15466225)
+myDataset.addSample("QCD_HT1500to2000", basedir+"/QCDBkg/HT1500to2000/*.h5", weight=119.9/3368613)
+myDataset.addSample("QCD_HT2000toInf" , basedir+"/QCDBkg/HT2000toInf/*.h5", weight=25.24/3250016)
 myDataset.setProcessLabel("RPV_1400", 1)
-myDataset.setProcessLabel("QCD_HT1000to1500", 0) ## This is not necessary because the default is 0
-myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0
-myDataset.setProcessLabel("QCD_HT2000toInf", 0) ## This is not necessary because the default is 0
+myDataset.setProcessLabel("QCD_HT1000to1500", 0)
+myDataset.setProcessLabel("QCD_HT1500to2000", 0)
+myDataset.setProcessLabel("QCD_HT2000toInf", 0)
 sysstat.update(annotation="init dataset")
 myDataset.initialize(logger=sysstat)
 
@@ -102,7 +102,7 @@ torch.manual_seed(123456)
 trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
 torch.manual_seed(torch.initial_seed())
 
-kwargs = {'num_workers':min(4, nthreads), 'pin_memory':False}
+kwargs = {'num_workers':min(8, nthreads), 'pin_memory':False}
 #kwargs = {'pin_memory':True}
 #if torch.cuda.is_available():
 #    #if hvd: kwargs['num_workers'] = 1
@@ -228,7 +228,7 @@ try:
 
         if hvd: val_acc = metric_average(val_acc, 'avg_accuracy')
         if bestLoss < val_loss:
-            bestModel = model.state_dict()
+            bestModel = model.to('cpu').state_dict()
             bestLoss = val_loss
             if hvd_rank == 0:
                 torch.save(bestModel, weightFile)
