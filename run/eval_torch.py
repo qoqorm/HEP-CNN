@@ -24,6 +24,7 @@ parser.add_argument('-c', '--config', action='store', type=str, default='config.
 
 args = parser.parse_args()
 config = yaml.load(open(args.config).read(), Loader=yaml.FullLoader)
+lumiVal = args.lumi
 
 predFile = args.input+'/prediction.csv'
 import pandas as pd
