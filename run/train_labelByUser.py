@@ -102,7 +102,7 @@ torch.manual_seed(123456)
 trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
 torch.manual_seed(torch.initial_seed())
 
-kwargs = {'num_workers':min(8, nthreads), 'pin_memory':False}
+kwargs = {'num_workers':min(4, nthreads), 'pin_memory':False}
 #kwargs = {'pin_memory':True}
 #if torch.cuda.is_available():
 #    #if hvd: kwargs['num_workers'] = 1
