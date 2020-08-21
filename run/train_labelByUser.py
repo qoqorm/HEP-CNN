@@ -1,10 +1,9 @@
-#!/usr/bin/env python
 import h5py
 import numpy as np
 import argparse
 import sys, os
 import subprocess
-import csv
+import csv, yaml
 import math
 
 import torch
@@ -38,8 +37,10 @@ parser.add_argument('--model', action='store', choices=('default', 'defaultnorm1
                                                         'circpadlog5ch', 'circpadlog5chnorm1', 'circpadlog5chnorm0', 'circpadlog5chnorm1cat',),
                                default='default', help='choice of model')
 parser.add_argument('--device', action='store', type=int, default=0, help='device name')
+parser.add_argument('-c', '--config', action='store', type=str, default='config.yaml', help='Configration file with sample information')
 
 args = parser.parse_args()
+config = yaml.load(open(args.config).read(), Loader=yaml.FullLoader)
 
 hvd_rank, hvd_size = 0, 1
 if hvd:
@@ -82,27 +83,22 @@ from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="add samples")
 myDataset = MyDataset()
-basedir = os.environ['SAMPLEDIR'] if 'SAMPLEDIR' in  os.environ else "../data/hdf5_32PU_224x224/"
-myDataset.addSample("RPV_1400", basedir+"/RPV/Gluino1400GeV/*.h5", weight=0.0252977/330599)
-#myDataset.addSample("QCD_HT700to1000" , basedir+"/QCD/HT700to1000/*/*.h5", weight=6831/????)
-myDataset.addSample("QCD_HT1000to1500", basedir+"/QCDBkg/HT1000to1500/*.h5", weight=1207./15466225)
-myDataset.addSample("QCD_HT1500to2000", basedir+"/QCDBkg/HT1500to2000/*.h5", weight=119.9/3368613)
-myDataset.addSample("QCD_HT2000toInf" , basedir+"/QCDBkg/HT2000toInf/*.h5", weight=25.24/3250016)
-myDataset.setProcessLabel("RPV_1400", 1)
-myDataset.setProcessLabel("QCD_HT1000to1500", 0)
-myDataset.setProcessLabel("QCD_HT1500to2000", 0)
-myDataset.setProcessLabel("QCD_HT2000toInf", 0)
+for sampleInfo in config['samples']:
+    if 'ignore' in sampleInfo and sampleInfo['ignore']: continue
+    name = sampleInfo['name']
+    myDataset.addSample(name, sampleInfo['path'], weight=sampleInfo['xsec']/sampleInfo['ngen'])
+    myDataset.setProcessLabel(name, sampleInfo['label'])
 sysstat.update(annotation="init dataset")
 myDataset.initialize(logger=sysstat)
 
 sysstat.update(annotation="split dataset")
 lengths = [int(0.6*len(myDataset)), int(0.2*len(myDataset))]
 lengths.append(len(myDataset)-sum(lengths))
-torch.manual_seed(123456)
+torch.manual_seed(config['training']['randomSeed1'])
 trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
 torch.manual_seed(torch.initial_seed())
 
-kwargs = {'num_workers':min(4, nthreads), 'pin_memory':False}
+kwargs = {'num_workers':min(config['training']['nDataLoaders'], nthreads), 'pin_memory':False}
 #kwargs = {'pin_memory':True}
 #if torch.cuda.is_available():
 #    #if hvd: kwargs['num_workers'] = 1
