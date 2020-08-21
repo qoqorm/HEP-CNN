@@ -80,6 +80,7 @@ if args.device >= 0 and torch.cuda.is_available():
 print('done')
 
 model.load_state_dict(torch.load(args.input+'/weight_0.pth', map_location='cpu'))
+model.to(device)
 print('modify model', end='')
 model.fc.add_module('output', torch.nn.Sigmoid())
 model.eval()
