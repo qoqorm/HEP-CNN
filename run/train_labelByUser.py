@@ -34,7 +34,8 @@ parser.add_argument('--model', action='store', choices=('default', 'defaultnorm1
                                                         'original',
                                                         'circpad', 'circpadnorm1', 'circpadnorm0', 'circpadnorm1cat',
                                                         'circpadlog3ch', 'circpadlog3chnorm1', 'circpadlog3chnorm0', 'circpadlog3chnorm1cat',
-                                                        'circpadlog5ch', 'circpadlog5chnorm1', 'circpadlog5chnorm0', 'circpadlog5chnorm1cat',),
+                                                        'circpadlog5ch', 'circpadlog5chnorm1', 'circpadlog5chnorm0', 'circpadlog5chnorm1cat',
+                                                        'CPlargekernel', 'CPlargekernelnorm0', 'CPlargekernelnorm1',),
                                default='default', help='choice of model')
 parser.add_argument('--device', action='store', type=int, default=0, help='device name')
 parser.add_argument('-c', '--config', action='store', type=str, default='config.yaml', help='Configration file with sample information')
@@ -120,6 +121,8 @@ if args.model == 'original':
     from HEPCNN.torch_model_original import MyModel
 elif 'circpad' in args.model:
     from HEPCNN.torch_model_circpad import MyModel
+elif 'largekernel' in args.model:
+    from HEPCNN.torch_model_largekernel import MyModel
 else:
     from HEPCNN.torch_model_default import MyModel
 model = MyModel(myDataset.width, myDataset.height, model=args.model)
