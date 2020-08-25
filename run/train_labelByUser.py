@@ -172,7 +172,7 @@ with open(args.outdir+'/summary.txt', 'w') as fout:
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
-bestModel, bestLoss = {}, 1e9
+bestWeight, bestLoss = {}, 1e9
 try:
     timeHistory = TimeHistory()
     timeHistory.on_train_begin()
@@ -226,11 +226,11 @@ try:
         val_acc  /= len(valLoader)
 
         if hvd: val_acc = metric_average(val_acc, 'avg_accuracy')
-        if bestLoss < val_loss:
-            bestModel = model.to('cpu').state_dict()
+        if bestLoss > val_loss:
+            bestWeight = model.to('cpu').state_dict()
             bestLoss = val_loss
             if hvd_rank == 0:
-                torch.save(bestModel, weightFile)
+                torch.save(bestWeight, weightFile)
                 sysstat.update(annotation="saved_model")
             model.to(device)
 
