@@ -27,7 +27,8 @@ parser.add_argument('-o', '--outdir', action='store', type=str, required=True, h
 parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Learning rate')
 parser.add_argument('--batchPerStep', action='store', type=int, default=1, help='Number of batches per step (to emulate all-reduce)')
 parser.add_argument('--shuffle', action='store', type=bool, default=True, help='Shuffle batches for each epochs')
-parser.add_argument('--optimizer', action='store', choices=('sgd', 'adam', 'radam', 'ranger'), default='adam', help='optimizer to run')
+parser.add_argument('--optimizer', action='store', choices=('sgd', 'adam', 'radam', 'ranger',
+    'lamb', 'novograd'), default='adam', help='optimizer to run')
 parser.add_argument('--model', action='store', choices=('default', 'defaultnorm1', 'defaultnorm0', 'defaultcat', 'defaultnorm1cat',
                                                         'log3ch', 'log3chnorm1', 'log3chnorm0', 'log3chcat', 'log3chnorm1cat',
                                                         'log5ch', 'log5chnorm1', 'log5chnorm0', 'log5chcat', 'log5chnorm1cat',
@@ -39,6 +40,7 @@ parser.add_argument('--model', action='store', choices=('default', 'defaultnorm1
                                default='default', help='choice of model')
 parser.add_argument('--device', action='store', type=int, default=0, help='device name')
 parser.add_argument('-c', '--config', action='store', type=str, default='config.yaml', help='Configration file with sample information')
+parser.add_argument('--lars','-l', action='store', type=bool, default=False, help='Use LARS optimizer')
 
 args = parser.parse_args()
 config = yaml.load(open(args.config).read(), Loader=yaml.FullLoader)
@@ -144,9 +146,22 @@ elif args.optimizer == 'adam':
     optm = optim.Adam(model.parameters(), lr=args.lr)
 elif args.optimizer == 'sgd':
     optm = optim.SGD(model.parameters(), lr=args.lr)
+elif args.optimizer == 'lamb':
+    from optimizers.lamb import Lamb
+    optm = Lamb(model.parameters(), lr=args.lr)
+elif args.optimizer == 'novograd':
+    from optimizers.novograd import NovoGrad
+    optm = NovoGrad(model.parameters(), lr=args.lr)
 else:
     print("Cannot find optimizer in the list")
     exit()
+
+if args.lars == True:
+    from optimizers.lars import LARS
+    optm_base = optm
+    optm = LARS(optimizer=optm_base)
+    print("Using LARS with base optimizer %s"%(args.optimizer))
+
 
 if hvd:
     compression = hvd.Compression.none
@@ -172,7 +187,7 @@ with open(args.outdir+'/summary.txt', 'w') as fout:
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
-bestModel, bestLoss = {}, 1e9
+bestWeight, bestLoss = {}, 1e9
 try:
     timeHistory = TimeHistory()
     timeHistory.on_train_begin()
@@ -226,11 +241,11 @@ try:
         val_acc  /= len(valLoader)
 
         if hvd: val_acc = metric_average(val_acc, 'avg_accuracy')
-        if bestLoss < val_loss:
-            bestModel = model.to('cpu').state_dict()
+        if bestLoss > val_loss:
+            bestWeight = model.to('cpu').state_dict()
             bestLoss = val_loss
             if hvd_rank == 0:
-                torch.save(bestModel, weightFile)
+                torch.save(bestWeight, weightFile)
                 sysstat.update(annotation="saved_model")
             model.to(device)
 
