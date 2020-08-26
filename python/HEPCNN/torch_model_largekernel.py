@@ -38,8 +38,8 @@ class MyModel(nn.Module):
             nn.BatchNorm2d(num_features=64, eps=0.001, momentum=0.99),
             nn.Dropout2d(0.5),
         ])
-        self.fh = self.fh//2
-        self.fw = self.fw//2
+        self.fh = self.fh//14
+        self.fw = self.fw//14
 
         self.conv.extend([
             CircularPadX(1),
@@ -77,7 +77,7 @@ class MyModel(nn.Module):
         self.conv = nn.Sequential(*self.conv)
 
         self.fc = nn.Sequential(
-            nn.Linear(self.fw*self.fh*256 + (3 if self.doCat else 0), 512),
+            nn.Linear(2304 + (3 if self.doCat else 0), 512),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(512, 1),
