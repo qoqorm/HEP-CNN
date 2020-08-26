@@ -77,7 +77,7 @@ class MyModel(nn.Module):
         self.conv = nn.Sequential(*self.conv)
 
         self.fc = nn.Sequential(
-            nn.Linear(2304 + (3 if self.doCat else 0), 512),
+            nn.Linear(self.fw*self.fh*16*9 + (3 if self.doCat else 0), 512),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(512, 1),
