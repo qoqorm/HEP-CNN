@@ -33,13 +33,13 @@ class MyModel(nn.Module):
             CircularPadX(1),
             nn.Conv2d(self.nch, 64, kernel_size=(14, 14), stride=1, padding=(1,0)), ## padding=(height,width)
 
-            nn.MaxPool2d(kernel_size=(14, 14)),
+            nn.MaxPool2d(kernel_size=(21, 21)),
             nn.ReLU(),
             nn.BatchNorm2d(num_features=64, eps=0.001, momentum=0.99),
             nn.Dropout2d(0.5),
         ])
-        self.fh = self.fh//2
-        self.fw = self.fw//2
+        self.fh = self.fh//28
+        self.fw = self.fw//28
 
         self.conv.extend([
             CircularPadX(1),
