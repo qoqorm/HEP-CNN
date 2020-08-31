@@ -120,13 +120,13 @@ else:
 ## Build model
 sysstat.update(annotation="Model start")
 if args.model == 'original':
-    from HEPCNN.torch_model_original import MyModel
-elif 'circpad' in args.model:
-    from HEPCNN.torch_model_circpad import MyModel
+    from HEPCNN.model_original import MyModel
 elif 'largekernel' in args.model:
-    from HEPCNN.torch_model_largekernel import MyModel
+    from HEPCNN.model_largekernel import MyModel
+elif 'circpad' in args.model:
+    from HEPCNN.model_circpad import MyModel
 else:
-    from HEPCNN.torch_model_default import MyModel
+    from HEPCNN.model_default import MyModel
 model = MyModel(myDataset.width, myDataset.height, model=args.model)
 if hvd_rank == 0: torch.save(model, modelFile)
 device = 'cpu'
