@@ -30,16 +30,16 @@ class MyModel(nn.Module):
         self.conv = []
 
         self.conv.extend([
-            CircularPadX(1),
-            nn.Conv2d(self.nch, 64, kernel_size=(14, 14), stride=1, padding=(1,0)), ## padding=(height,width)
+            CircularPadX(14),
+            nn.Conv2d(self.nch, 64, kernel_size=(14, 14), padding=(1,0)), ## padding=(height,width)
 
             nn.MaxPool2d(kernel_size=(14, 14)),
             nn.ReLU(),
             nn.BatchNorm2d(num_features=64, eps=0.001, momentum=0.99),
             nn.Dropout2d(0.5),
         ])
-        self.fh = self.fh//14
-        self.fw = self.fw//14
+        self.fh = (self.fh+14-14+1)//14
+        self.fw = (self.fw+2-14+1)//14
 
         self.conv.extend([
             CircularPadX(1),
@@ -77,7 +77,7 @@ class MyModel(nn.Module):
         self.conv = nn.Sequential(*self.conv)
 
         self.fc = nn.Sequential(
-            nn.Linear(self.fw*self.fh*16*9 + (3 if self.doCat else 0), 512),
+            nn.Linear(self.fw*self.fh*256 + (3 if self.doCat else 0), 512),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(512, 1),
