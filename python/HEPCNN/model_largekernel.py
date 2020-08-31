@@ -30,7 +30,7 @@ class MyModel(nn.Module):
         self.conv = []
 
         self.conv.extend([
-            CircularPadX(14),
+            CircularPadX(7),
             nn.Conv2d(self.nch, 64, kernel_size=(14, 14), padding=(1,0)), ## padding=(height,width)
 
             nn.MaxPool2d(kernel_size=(2, 2)),
@@ -39,7 +39,7 @@ class MyModel(nn.Module):
             nn.Dropout2d(0.5),
         ])
         self.fh = (self.fh+2-14+1)//2
-        self.fw = (self.fw+2*14-14+1)//2
+        self.fw = (self.fw+2*7-14+1)//2
 
         self.conv.extend([
             CircularPadX(1),
