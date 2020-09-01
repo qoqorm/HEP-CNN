@@ -53,7 +53,7 @@ if hvd:
     print("Horovod is available. (rank=%d size=%d)" % (hvd_rank, hvd_size))
     #torch.manual_seed(args.seed)
     if torch.cuda.is_available(): torch.cuda.set_device(hvd.local_rank())
-if args.device >= 0: torch.cuda.set_device(args.device)
+if torch.cuda.is_available() and args.device >= 0: torch.cuda.set_device(args.device)
 
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
 modelFile = os.path.join(args.outdir, 'model.pth')
