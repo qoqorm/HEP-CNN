@@ -41,6 +41,7 @@ parser.add_argument('--model', action='store', choices=('default', 'defaultnorm1
 parser.add_argument('--device', action='store', type=int, default=0, help='device name')
 parser.add_argument('-c', '--config', action='store', type=str, default='config.yaml', help='Configration file with sample information')
 parser.add_argument('--lars','-l', action='store', type=bool, default=False, help='Use LARS optimizer')
+parser.add_argument('--noperfmon', action='store_true', default=False, help='turn off performance monitoring')
 
 args = parser.parse_args()
 config = yaml.load(open(args.config).read(), Loader=yaml.FullLoader)
@@ -63,9 +64,10 @@ trainingFile = os.path.join(args.outdir, 'history_%d.csv' % hvd_rank)
 resourceByCPFile = os.path.join(args.outdir, 'resourceByCP_%d.csv' % hvd_rank)
 resourceByTimeFile = os.path.join(args.outdir, 'resourceByTime_%d.csv' % hvd_rank)
 
-proc = subprocess.Popen(['python', '../scripts/monitor_proc.py', '-t', '1',
-                        '-o', resourceByTimeFile, '%d' % os.getpid()],
-                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+if not args.noperfmon:
+    proc = subprocess.Popen(['python', '../scripts/monitor_proc.py', '-t', '1',
+                            '-o', resourceByTimeFile, '%d' % os.getpid()],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 import time
 class TimeHistory():#tf.keras.callbacks.Callback):
