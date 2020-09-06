@@ -229,8 +229,8 @@ for nEvent0, srcFileName in zip(nEvent0s, srcFileNames):
     src_towers_Ehad = src_towers_Ehad[selEvent]
 
     ## Save output
-    fileOuts.addEvents(src_weights,
-                       src_tracks_pt, src_tracks_eta, src_tracks_phi,
+    fileOuts.addEvents(src_weights, src_tracks_pt if not self.doTrackCount else None,
+                       src_tracks_eta, src_tracks_phi,
                        src_towers_eta, src_towers_phi, src_towers_Eem, src_towers_Ehad)
 
 ## save remaining events
