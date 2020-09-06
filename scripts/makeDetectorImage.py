@@ -74,7 +74,6 @@ class FileSplitOut:
         self.maxEvent = maxEvent
 
         self.chunkSize = args.chunk
-        self.doTrackCount = args.dotrackcount
         self.debug = args.debug
 
         self.height = args.height
@@ -145,7 +144,7 @@ class FileSplitOut:
         with h5py.File(fName, 'w', libver='latest', swmr=True) as outFile:
             g = outFile.create_group('all_events')
             g.create_dataset('weights', data=self.weights, chunks=(chunkSize,), dtype='f4')
-            g.create_dataset('images' , data=self.images , chunks=((chunkSize,)+self.shape), **self.kwargs)
+            g.create_dataset('images' , data=self.images , chunks=(chunkSize,*self.shape), **self.kwargs)
             if self.debug: print("  done")
 
         self.nOutFile += 1
@@ -229,7 +228,7 @@ for nEvent0, srcFileName in zip(nEvent0s, srcFileNames):
     src_towers_Ehad = src_towers_Ehad[selEvent]
 
     ## Save output
-    if self.doTrackCount: src_tracks_pt = [None]*len(src_tracks_pt)
+    if args.dotrackcount: src_tracks_pt = [None]*len(src_tracks_pt)
     fileOuts.addEvents(src_weights, src_tracks_pt, src_tracks_eta, src_tracks_phi,
                        src_towers_eta, src_towers_phi, src_towers_Eem, src_towers_Ehad)
 
