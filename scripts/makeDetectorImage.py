@@ -55,9 +55,8 @@ def selectBaselineCuts(src_fjets_pt, src_fjets_eta, src_fjets_mass,
 ###################################################################################################
 
 class FileSplitOut:
-    def __init__(self, maxEvent, nEventTotal, args):
+    def __init__(self, maxEvent, args):
         self.maxEvent = maxEvent
-        self.nEventTotal = nEventTotal
 
         self.chunkSize = args.chunk
         self.doTrackCount = args.dotrackcount
@@ -90,20 +89,24 @@ class FileSplitOut:
         self.weights = np.ones(0)
         self.images = np.ones([0,*self.shape])
 
-    def addEvents(self, src_weights, src_images_h, src_images_e, src_images_t):
+    def addEvents(self, src_weights,
+                  src_tracks_pt, src_tracks_eta, src_tracks_phi,
+                  src_tower_eta, src_tower_phi, src_tower_Eem, src_tower_Ehad):
         nSrcEvent = len(src_weights)
         begin = 0
         while begin < nSrcEvent:
             end = min(nSrcEvent, begin+self.maxEvent-len(self.weights))
             self.nOutEvent += (end-begin)
-            print("%d/%d" % (self.nOutEvent, self.nEventTotal), end='\r')
-
-            images_h = np.expand_dims(src_images_h[begin:end,:,:], self.chAxis)
-            images_e = np.expand_dims(src_images_e[begin:end,:,:], self.chAxis)
-            images_t = np.expand_dims(src_images_t[begin:end,:,:], self.chAxis)
-            images = np.concatenate([images_h, images_e, images_t], axis=self.chAxis)
+            print("%d events processed..." % (self.nOutEvent), end='\r')
 
             self.weights = np.concatenate([self.weights, src_weights[begin:end]])
+
+            ### FIXME: implement 2d histogramming, save track, towers to images_h,e,t
+            
+            images_h = np.expand_dims(images_h, self.chAxis)
+            images_e = np.expand_dims(images_e, self.chAxis)
+            images_t = np.expand_dims(images_t, self.chAxis)
+            images = np.concatenate([images_h, images_e, images_t], axis=self.chAxis)
             self.images  = np.concatenate([self.images , images])
 
             if len(self.weights) == self.maxEvent: self.flush()
@@ -186,10 +189,32 @@ for nEvent0, srcFileName in zip(nEvent0s, srcFileNames):
     selEvent = selectBaselineCuts(src_fjets_pt, src_fjets_eta, src_fjets_mass,
                                   src_jets_pt, src_jets_eta, src_jets_btag)
 
-    src_weights = src_weights[selEvent]
+    ## Load tracks and calo towers
+    src_tracks_pt  = tree["Track"]["Track.PT"].array()
+    src_tracks_eta = tree["Track"]["Track.Eta"].array()
+    src_tracks_phi = tree["Track"]["Track.Phi"].array()
+    src_tower_et   = tree["Tower"]["Tower.ET"].array()
+    src_tower_eta  = tree["Tower"]["Tower.Eta"].array()
+    src_tower_phi  = tree["Tower"]["Tower.Phi"].array()
+    src_tower_Eem  = tree["Tower"]["Tower.Eem"].array()
+    src_tower_Ehad = tree["Tower"]["Tower.Ehad"].array()
+
+    ## Apply event selection
+    src_weights    = src_weights[selEvent]
+    src_tracks_pt  = src_tracks_pt[selEvent]
+    src_tracks_eta = src_tracks_eta[selEvent]
+    src_tracks_phi = src_tracks_phi[selEvent]
+    #src_tower_et   = src_tower_et[selEvent]
+    src_tower_eta  = src_tower_eta[selEvent]
+    src_tower_phi  = src_tower_phi[selEvent]
+    src_tower_Eem  = src_tower_Eem[selEvent]
+    src_tower_Ehad = src_tower_Ehad[selEvent]
 
     ## Save output
-    fileOuts.addEvents(src_weights)
+    fileOuts.addEvents(src_weights,
+                       src_tracks_pt, src_tracks_eta, src_tracks_phi,
+                       src_tower_eta, src_tower_phi, src_tower_Eem, src_tower_Ehad)
+
 ## save remaining events
 fileOuts.flush()
 
