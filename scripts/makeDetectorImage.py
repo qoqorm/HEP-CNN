@@ -15,8 +15,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('input', nargs='+', action='store', type=str, help='input file names')
 parser.add_argument('-o', '--output', action='store', type=str, help='output file name', required=True)
 parser.add_argument('-n', '--nevent', action='store', type=int, default=-1, help='number of events to preprocess')
-parser.add_argument('-w', '--width', action='store', type=float, default=224, help='image width')
-parser.add_argument('-h', '--height', action='store', type=float, default=224, help='image height')
+parser.add_argument('--width', action='store', type=float, default=224, help='image width, along eta')
+parser.add_argument('--height', action='store', type=float, default=224, help='image height, along phi')
 parser.add_argument('--format', action='store', choices=('NHWC', 'NCHW'), default='NCHW', help='image format for output (NHWC for TF default, NCHW for pytorch default)')
 parser.add_argument('-c', '--chunk', action='store', type=int, default=1024, help='chunk size')
 parser.add_argument('--compress', action='store', choices=('gzip', 'lzf', 'none'), default='none', help='compression algorithm')
@@ -54,6 +54,21 @@ def selectBaselineCuts(src_fjets_pt, src_fjets_eta, src_fjets_mass,
 
 ###################################################################################################
 
+#@numba.njit(nogil=True, fastmath=True, parallel=True)
+## note: numba does not support np.histogram2d. sad...
+def getImage(pts, etas, phis, bins):
+    xlim = [-2.5, 2.5]
+    ylim = [-3.141593, 3.141593]
+
+    hs = []
+    for i in range(len(etas)):
+        h = np.histogram2d(etas[i], phis[i], weights=pts[i], bins=bins, range=[xlim, ylim])
+        hs.append(h[0])
+
+    return np.stack(hs)
+
+###################################################################################################
+
 class FileSplitOut:
     def __init__(self, maxEvent, args):
         self.maxEvent = maxEvent
@@ -62,11 +77,13 @@ class FileSplitOut:
         self.doTrackCount = args.dotrackcount
         self.debug = args.debug
 
+        self.height = args.height
+        self.width = args.width
         if args.format == 'NHWC': ## TF default
-            self.shape = [args.h, args.w, 3]
+            self.shape = [self.height, self.width, 3]
             self.chAxis = -1
         else: ## pytorch default
-            self.shape = [3, args.h, args.w]
+            self.shape = [3, self.height, self.width]
             self.chAxis = 1
 
         precision = 'f%d' % (args.precision//8)
@@ -91,7 +108,7 @@ class FileSplitOut:
 
     def addEvents(self, src_weights,
                   src_tracks_pt, src_tracks_eta, src_tracks_phi,
-                  src_tower_eta, src_tower_phi, src_tower_Eem, src_tower_Ehad):
+                  src_towers_eta, src_towers_phi, src_towers_Eem, src_towers_Ehad):
         nSrcEvent = len(src_weights)
         begin = 0
         while begin < nSrcEvent:
@@ -101,13 +118,15 @@ class FileSplitOut:
 
             self.weights = np.concatenate([self.weights, src_weights[begin:end]])
 
-            ### FIXME: implement 2d histogramming, save track, towers to images_h,e,t
+            images_h = getImage(src_towers_Ehad, src_towers_eta, src_towers_phi, [self.width, self.height])
+            images_e = getImage(src_towers_Eem, src_towers_eta, src_towers_phi, [self.width, self.height])
+            images_t = getImage(src_tracks_pt, src_tracks_eta, src_tracks_phi, [self.width, self.height])
             
             images_h = np.expand_dims(images_h, self.chAxis)
             images_e = np.expand_dims(images_e, self.chAxis)
             images_t = np.expand_dims(images_t, self.chAxis)
             images = np.concatenate([images_h, images_e, images_t], axis=self.chAxis)
-            self.images  = np.concatenate([self.images , images])
+            self.images  = np.concatenate([self.images, images])
 
             if len(self.weights) == self.maxEvent: self.flush()
             begin = end
@@ -148,8 +167,8 @@ for x in args.input:
     for fName in glob(x):
         if not fName.endswith('.root'): continue
         f = uproot.open(fName)
-        if treeName not in f: continue
-        tree = f[treeName]
+        if "Delphes" not in f: continue
+        tree = f["Delphes"]
         if tree == None: continue
 
         if args.debug and nEventTotal == 0:
@@ -164,7 +183,7 @@ for x in args.input:
         nEventTotal += nEvent0
 nEventOutFile = min(nEventTotal, args.nevent) if args.nevent >= 0 else nEventTotal
 
-fileOuts = FileSplitOut(nEventOutFile, nEventTotal, args)
+fileOuts = FileSplitOut(nEventOutFile, args)
 
 print("@@@ Start processing...")
 weightName = None if args.mc else "Weight"
@@ -175,10 +194,9 @@ for nEvent0, srcFileName in zip(nEvent0s, srcFileNames):
     tree = fin["Delphes"]
 
     ## Load objects
-    src_weights = np.ones(nEvent0) if weightName else tree[weightName]
+    src_weights = np.ones(nEvent0) if weightName == None else tree[weightName]
     src_jets_eta = tree["Jet"]["Jet.Eta"].array()
     src_jets_phi = tree["Jet"]["Jet.Phi"].array()
-    src_jets_feats = [tree["Jet"][featName].array() for featName in featNames]
 
     ## Apply event selection in this file
     src_fjets_pt   = tree["FatJet"]["FatJet.PT"].array()
@@ -190,30 +208,30 @@ for nEvent0, srcFileName in zip(nEvent0s, srcFileNames):
                                   src_jets_pt, src_jets_eta, src_jets_btag)
 
     ## Load tracks and calo towers
-    src_tracks_pt  = tree["Track"]["Track.PT"].array()
-    src_tracks_eta = tree["Track"]["Track.Eta"].array()
-    src_tracks_phi = tree["Track"]["Track.Phi"].array()
-    src_tower_et   = tree["Tower"]["Tower.ET"].array()
-    src_tower_eta  = tree["Tower"]["Tower.Eta"].array()
-    src_tower_phi  = tree["Tower"]["Tower.Phi"].array()
-    src_tower_Eem  = tree["Tower"]["Tower.Eem"].array()
-    src_tower_Ehad = tree["Tower"]["Tower.Ehad"].array()
+    src_tracks_pt   = tree["Track"]["Track.PT"].array()
+    src_tracks_eta  = tree["Track"]["Track.Eta"].array()
+    src_tracks_phi  = tree["Track"]["Track.Phi"].array()
+    src_towers_et   = tree["Tower"]["Tower.ET"].array()
+    src_towers_eta  = tree["Tower"]["Tower.Eta"].array()
+    src_towers_phi  = tree["Tower"]["Tower.Phi"].array()
+    src_towers_Eem  = tree["Tower"]["Tower.Eem"].array()
+    src_towers_Ehad = tree["Tower"]["Tower.Ehad"].array()
 
     ## Apply event selection
-    src_weights    = src_weights[selEvent]
-    src_tracks_pt  = src_tracks_pt[selEvent]
-    src_tracks_eta = src_tracks_eta[selEvent]
-    src_tracks_phi = src_tracks_phi[selEvent]
-    #src_tower_et   = src_tower_et[selEvent]
-    src_tower_eta  = src_tower_eta[selEvent]
-    src_tower_phi  = src_tower_phi[selEvent]
-    src_tower_Eem  = src_tower_Eem[selEvent]
-    src_tower_Ehad = src_tower_Ehad[selEvent]
+    src_weights     = src_weights[selEvent]
+    src_tracks_pt   = src_tracks_pt[selEvent]
+    src_tracks_eta  = src_tracks_eta[selEvent]
+    src_tracks_phi  = src_tracks_phi[selEvent]
+    #src_towers_et   = src_towers_et[selEvent]
+    src_towers_eta  = src_towers_eta[selEvent]
+    src_towers_phi  = src_towers_phi[selEvent]
+    src_towers_Eem  = src_towers_Eem[selEvent]
+    src_towers_Ehad = src_towers_Ehad[selEvent]
 
     ## Save output
     fileOuts.addEvents(src_weights,
                        src_tracks_pt, src_tracks_eta, src_tracks_phi,
-                       src_tower_eta, src_tower_phi, src_tower_Eem, src_tower_Ehad)
+                       src_towers_eta, src_towers_phi, src_towers_Eem, src_towers_Ehad)
 
 ## save remaining events
 fileOuts.flush()
