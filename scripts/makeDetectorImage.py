@@ -117,9 +117,9 @@ class FileSplitOut:
 
             self.weights = np.concatenate([self.weights, src_weights[begin:end]])
 
-            images_h = getImage(src_towers_Ehad, src_towers_eta, src_towers_phi, [self.width, self.height])
-            images_e = getImage(src_towers_Eem, src_towers_eta, src_towers_phi, [self.width, self.height])
-            images_t = getImage(src_tracks_pt, src_tracks_eta, src_tracks_phi, [self.width, self.height])
+            images_h = getImage(src_towers_Ehad[begin:end], src_towers_eta[begin:end], src_towers_phi[begin:end], [self.width, self.height])
+            images_e = getImage(src_towers_Eem[begin:end], src_towers_eta[begin:end], src_towers_phi[begin:end], [self.width, self.height])
+            images_t = getImage(src_tracks_pt[begin:end], src_tracks_eta[begin:end], src_tracks_phi[begin:end], [self.width, self.height])
             
             images_h = np.expand_dims(images_h, self.chAxis)
             images_e = np.expand_dims(images_e, self.chAxis)
@@ -152,8 +152,9 @@ class FileSplitOut:
         if self.debug:
             with h5py.File(fName, 'r', libver='latest', swmr=True) as outFile:
                 print("  created %s %dth file" % (fName, self.nOutFile), end='')
-                print("  keys=", list(outFile.keys()), end='')
-                print("  shape=", outFile['all_events']['images'].shape)
+                print("  keys=", list(outFile['all_events'].keys()))
+                print("  weights=", outFile['all_events/weights'].shape, end='')
+                print("  shape=", outFile['all_events/images'].shape)
 
 ###################################################################################################
 
