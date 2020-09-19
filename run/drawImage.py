@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 import argparse
+import yaml
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch', action='store', type=int, default=256, help='Batch size')
 parser.add_argument('--type', action='store', type=str, choices=('trackpt', 'trackcount'), default='trackcount', help='image type')
 parser.add_argument('--device', action='store', type=int, default=-1, help='device name')
 parser.add_argument('--noimage', action='store_true', default=False, help='draw event image')
+parser.add_argument('-c', '--config', action='store', type=str, default='config.yaml', help='Configration file with sample information')
+
 args = parser.parse_args()
+config = yaml.load(open(args.config).read(), Loader=yaml.FullLoader)
 
 xmaxs = [5e3, 5e3, 20]
 nbinsx = [50, 50, 20]
@@ -26,16 +30,11 @@ sys.path.append("../python")
 from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
 myDataset = MyDataset()
-basedir = os.environ['SAMPLEDIR'] if 'SAMPLEDIR' in  os.environ else "../data/hdf5_32PU_224x224/"
-myDataset.addSample("RPV_1400", basedir+"/RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
-#myDataset.addSample("QCD_HT700to1000" , basedir+"/QCD/HT700to1000/*/*.h5", weight=???)
-myDataset.addSample("QCD_HT1000to1500", basedir+"/QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
-myDataset.addSample("QCD_HT1500to2000", basedir+"/QCDBkg/HT1500to2000/*.h5", weight=99.16/3368613)
-myDataset.addSample("QCD_HT2000toInf" , basedir+"/QCDBkg/HT2000toInf/*.h5", weight=20.25/3250016)
-myDataset.setProcessLabel("RPV_1400", 1)
-myDataset.setProcessLabel("QCD_HT1000to1500", 0) ## This is not necessary because the default is 0
-myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0
-myDataset.setProcessLabel("QCD_HT2000toInf", 0) ## This is not necessary because the default is 0
+for sampleInfo in config['samples']:
+    if 'ignore' in sampleInfo and sampleInfo['ignore']: continue
+    name = sampleInfo['name']
+    myDataset.addSample(name, sampleInfo['path'], weight=sampleInfo['xsec']/sampleInfo['ngen'])
+    myDataset.setProcessLabel(name, sampleInfo['label'])
 myDataset.initialize()
 
 procNames = myDataset.sampleInfo['procName'].unique()
@@ -43,11 +42,11 @@ procNames = myDataset.sampleInfo['procName'].unique()
 from torch.utils.data import DataLoader
 lengths = [int(0.6*len(myDataset)), int(0.2*len(myDataset))]
 lengths.append(len(myDataset)-sum(lengths))
-torch.manual_seed(123456)
+torch.manual_seed(config['training']['randomSeed1'])
 trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
 torch.manual_seed(torch.initial_seed())
 
-kwargs = {'pin_memory':False, 'num_workers':8}
+kwargs = {'num_workers':config['training']['nDataLoaders']}
 allLoader = DataLoader(myDataset, batch_size=args.batch, shuffle=False, **kwargs)
 trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=False, **kwargs)
 valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=False, **kwargs)

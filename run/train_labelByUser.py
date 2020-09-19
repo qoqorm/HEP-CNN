@@ -1,10 +1,9 @@
-#!/usr/bin/env python
 import h5py
 import numpy as np
 import argparse
 import sys, os
 import subprocess
-import csv
+import csv, yaml
 import math
 
 import torch
@@ -28,18 +27,24 @@ parser.add_argument('-o', '--outdir', action='store', type=str, required=True, h
 parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Learning rate')
 parser.add_argument('--batchPerStep', action='store', type=int, default=1, help='Number of batches per step (to emulate all-reduce)')
 parser.add_argument('--shuffle', action='store', type=bool, default=True, help='Shuffle batches for each epochs')
-parser.add_argument('--optimizer', action='store', choices=('sgd', 'adam', 'radam', 'ranger'), default='adam', help='optimizer to run')
+parser.add_argument('--optimizer', action='store', choices=('sgd', 'adam', 'radam', 'ranger',
+    'lamb', 'novograd'), default='adam', help='optimizer to run')
 parser.add_argument('--model', action='store', choices=('default', 'defaultnorm1', 'defaultnorm0', 'defaultcat', 'defaultnorm1cat',
                                                         'log3ch', 'log3chnorm1', 'log3chnorm0', 'log3chcat', 'log3chnorm1cat',
                                                         'log5ch', 'log5chnorm1', 'log5chnorm0', 'log5chcat', 'log5chnorm1cat',
                                                         'original',
                                                         'circpad', 'circpadnorm1', 'circpadnorm0', 'circpadnorm1cat',
                                                         'circpadlog3ch', 'circpadlog3chnorm1', 'circpadlog3chnorm0', 'circpadlog3chnorm1cat',
-                                                        'circpadlog5ch', 'circpadlog5chnorm1', 'circpadlog5chnorm0', 'circpadlog5chnorm1cat',),
+                                                        'circpadlog5ch', 'circpadlog5chnorm1', 'circpadlog5chnorm0', 'circpadlog5chnorm1cat',
+                                                        'CPlargekernel', 'CPlargekernelnorm0', 'CPlargekernelnorm1',),
                                default='default', help='choice of model')
 parser.add_argument('--device', action='store', type=int, default=0, help='device name')
+parser.add_argument('-c', '--config', action='store', type=str, default='config.yaml', help='Configration file with sample information')
+parser.add_argument('--lars','-l', action='store', type=bool, default=False, help='Use LARS optimizer')
+parser.add_argument('--noperfmon', action='store_true', default=False, help='turn off performance monitoring')
 
 args = parser.parse_args()
+config = yaml.load(open(args.config).read(), Loader=yaml.FullLoader)
 
 hvd_rank, hvd_size = 0, 1
 if hvd:
@@ -49,19 +54,20 @@ if hvd:
     print("Horovod is available. (rank=%d size=%d)" % (hvd_rank, hvd_size))
     #torch.manual_seed(args.seed)
     if torch.cuda.is_available(): torch.cuda.set_device(hvd.local_rank())
-if args.device >= 0: torch.cuda.set_device(args.device)
+if torch.cuda.is_available() and args.device >= 0: torch.cuda.set_device(args.device)
 
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
-modelFile = os.path.join(args.outdir, 'model.pkl')
-weightFile = os.path.join(args.outdir, 'weight_%d.pkl' % hvd_rank)
+modelFile = os.path.join(args.outdir, 'model.pth')
+weightFile = os.path.join(args.outdir, 'weight_%d.pth' % hvd_rank)
 predFile = os.path.join(args.outdir, 'predict_%d.npy' % hvd_rank)
 trainingFile = os.path.join(args.outdir, 'history_%d.csv' % hvd_rank)
 resourceByCPFile = os.path.join(args.outdir, 'resourceByCP_%d.csv' % hvd_rank)
 resourceByTimeFile = os.path.join(args.outdir, 'resourceByTime_%d.csv' % hvd_rank)
 
-proc = subprocess.Popen(['python', '../scripts/monitor_proc.py', '-t', '1',
-                        '-o', resourceByTimeFile, '%d' % os.getpid()],
-                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+if not args.noperfmon:
+    proc = subprocess.Popen(['python', '../scripts/monitor_proc.py', '-t', '1',
+                            '-o', resourceByTimeFile, '%d' % os.getpid()],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 import time
 class TimeHistory():#tf.keras.callbacks.Callback):
@@ -82,27 +88,22 @@ from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
 
 sysstat.update(annotation="add samples")
 myDataset = MyDataset()
-basedir = os.environ['SAMPLEDIR'] if 'SAMPLEDIR' in  os.environ else "../data/hdf5_32PU_224x224/"
-myDataset.addSample("RPV_1400", basedir+"/RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
-#myDataset.addSample("QCD_HT700to1000" , basedir+"/QCD/HT700to1000/*/*.h5", weight=???)
-myDataset.addSample("QCD_HT1000to1500", basedir+"/QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
-myDataset.addSample("QCD_HT1500to2000", basedir+"/QCDBkg/HT1500to2000/*.h5", weight=99.16/3368613)
-myDataset.addSample("QCD_HT2000toInf" , basedir+"/QCDBkg/HT2000toInf/*.h5", weight=20.25/3250016)
-myDataset.setProcessLabel("RPV_1400", 1)
-myDataset.setProcessLabel("QCD_HT1000to1500", 0) ## This is not necessary because the default is 0
-myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0
-myDataset.setProcessLabel("QCD_HT2000toInf", 0) ## This is not necessary because the default is 0
+for sampleInfo in config['samples']:
+    if 'ignore' in sampleInfo and sampleInfo['ignore']: continue
+    name = sampleInfo['name']
+    myDataset.addSample(name, sampleInfo['path'], weight=sampleInfo['xsec']/sampleInfo['ngen'])
+    myDataset.setProcessLabel(name, sampleInfo['label'])
 sysstat.update(annotation="init dataset")
 myDataset.initialize(logger=sysstat)
 
 sysstat.update(annotation="split dataset")
 lengths = [int(0.6*len(myDataset)), int(0.2*len(myDataset))]
 lengths.append(len(myDataset)-sum(lengths))
-torch.manual_seed(123456)
+torch.manual_seed(config['training']['randomSeed1'])
 trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
 torch.manual_seed(torch.initial_seed())
 
-kwargs = {'num_workers':min(4, nthreads), 'pin_memory':False}
+kwargs = {'num_workers':min(config['training']['nDataLoaders'], nthreads), 'pin_memory':False}
 #kwargs = {'pin_memory':True}
 #if torch.cuda.is_available():
 #    #if hvd: kwargs['num_workers'] = 1
@@ -121,11 +122,13 @@ else:
 ## Build model
 sysstat.update(annotation="Model start")
 if args.model == 'original':
-    from HEPCNN.torch_model_original import MyModel
+    from HEPCNN.model_original import MyModel
+elif 'largekernel' in args.model:
+    from HEPCNN.model_largekernel import MyModel
 elif 'circpad' in args.model:
-    from HEPCNN.torch_model_circpad import MyModel
+    from HEPCNN.model_circpad import MyModel
 else:
-    from HEPCNN.torch_model_default import MyModel
+    from HEPCNN.model_default import MyModel
 model = MyModel(myDataset.width, myDataset.height, model=args.model)
 if hvd_rank == 0: torch.save(model, modelFile)
 device = 'cpu'
@@ -145,9 +148,22 @@ elif args.optimizer == 'adam':
     optm = optim.Adam(model.parameters(), lr=args.lr)
 elif args.optimizer == 'sgd':
     optm = optim.SGD(model.parameters(), lr=args.lr)
+elif args.optimizer == 'lamb':
+    from optimizers.lamb import Lamb
+    optm = Lamb(model.parameters(), lr=args.lr)
+elif args.optimizer == 'novograd':
+    from optimizers.novograd import NovoGrad
+    optm = NovoGrad(model.parameters(), lr=args.lr)
 else:
     print("Cannot find optimizer in the list")
     exit()
+
+if args.lars == True:
+    from optimizers.lars import LARS
+    optm_base = optm
+    optm = LARS(optimizer=optm_base)
+    print("Using LARS with base optimizer %s"%(args.optimizer))
+
 
 if hvd:
     compression = hvd.Compression.none
@@ -173,7 +189,7 @@ with open(args.outdir+'/summary.txt', 'w') as fout:
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
-bestModel, bestLoss = {}, -1
+bestWeight, bestLoss = {}, 1e9
 try:
     timeHistory = TimeHistory()
     timeHistory.on_train_begin()
@@ -227,12 +243,13 @@ try:
         val_acc  /= len(valLoader)
 
         if hvd: val_acc = metric_average(val_acc, 'avg_accuracy')
-        if bestLoss < val_loss:
-            bestModel = model.state_dict()
+        if bestLoss > val_loss:
+            bestWeight = model.to('cpu').state_dict()
             bestLoss = val_loss
             if hvd_rank == 0:
-                torch.save(bestModel, weightFile)
+                torch.save(bestWeight, weightFile)
                 sysstat.update(annotation="saved_model")
+            model.to(device)
 
         timeHistory.on_epoch_end()
         sysstat.update(annotation='epoch_end')
