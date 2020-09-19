@@ -30,22 +30,22 @@ class MyModel(nn.Module):
         self.conv = []
 
         self.conv.extend([
-            CircularPadX(7),
-            nn.Conv2d(self.nch, 64, kernel_size=(14, 14), padding=(1,0)), ## padding=(height,width)
+            CircularPadX(1),
+            nn.Conv2d(self.nch, 64, kernel_size=(14, 14), stride=1, padding=(1,0)), ## padding=(height,width)
 
-            nn.MaxPool2d(kernel_size=(2, 2)),
+            nn.MaxPool2d(kernel_size=(14, 14)),
             nn.ReLU(),
             nn.BatchNorm2d(num_features=64, eps=0.001, momentum=0.99),
             nn.Dropout2d(0.5),
         ])
-        self.fh = (self.fh+2-14+1)//2
-        self.fw = (self.fw+2*7-14+1)//2
+        self.fh = self.fh//2
+        self.fw = self.fw//2
 
         self.conv.extend([
             CircularPadX(1),
-            nn.Conv2d(64, 128, kernel_size=(3, 3), padding=(1,0)),
+            nn.Conv2d(64, 128, kernel_size=(14, 14), stride=1, padding=(1,0)),
 
-            nn.MaxPool2d(kernel_size=(2, 2)),
+            nn.MaxPool2d(kernel_size=(14, 14)),
             nn.ReLU(),
             nn.BatchNorm2d(num_features=128, eps=0.001, momentum=0.99),
             nn.Dropout2d(0.5),
@@ -55,9 +55,9 @@ class MyModel(nn.Module):
 
         self.conv.extend([
             CircularPadX(1),
-            nn.Conv2d(128, 256, kernel_size=(3, 3), padding=(1,0)),
+            nn.Conv2d(128, 256, kernel_size=(14, 14), stride=1, padding=(1,0)),
 
-            nn.MaxPool2d(kernel_size=(2, 2)),
+            nn.MaxPool2d(kernel_size=(14, 14)),
             nn.ReLU(),
             nn.BatchNorm2d(num_features=256, eps=0.001, momentum=0.99),
             nn.Dropout2d(0.5),
@@ -68,7 +68,7 @@ class MyModel(nn.Module):
 
         self.conv.extend([
             CircularPadX(1),
-            nn.Conv2d(256, 256, kernel_size=(3, 3), padding=(1,0)),
+            nn.Conv2d(256, 256, kernel_size=(14, 14), stride=1, padding=(1,0)),
 
             nn.ReLU(),
             nn.BatchNorm2d(num_features=256, eps=0.001, momentum=0.99),

@@ -22,7 +22,7 @@ conda install -y numpy ninja pyyaml mkl mkl-include setuptools cmake cffi typing
 conda install -y h5py tqdm scikit-learn matplotlib pandas
 
 conda install -y -c intel mkl-dnn
-conda install -y -c pytorch pytorch=1.6.0 cpuonly
+conda install -y -c pytorch pytorch cpuonly
 ##### Proceed ([y]/n)? y
 
 HOROVOD_WITH_MPI=1 HOROVOD_WITH_PYTORCH=1 pip install horovod

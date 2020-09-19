@@ -23,21 +23,20 @@ torch.set_num_threads(nthreads)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', action='store', type=int, default=50, help='Number of epochs')
+parser.add_argument('--ntrain', action='store', type=int, default=-1, help='Number of events for training')
+parser.add_argument('--ntest', action='store', type=int, default=-1, help='Number of events for test/validation')
 parser.add_argument('--batch', action='store', type=int, default=256, help='Batch size')
+parser.add_argument('-t', '--trndata', action='store', type=str, required=True, help='input file for training')
+parser.add_argument('-v', '--valdata', action='store', type=str, required=True, help='input file for validation')
 parser.add_argument('-o', '--outdir', action='store', type=str, required=True, help='Path to output directory')
 parser.add_argument('--lr', action='store', type=float, default=1e-3, help='Learning rate')
+parser.add_argument('--noEarlyStopping', action='store_true', help='do not apply Early Stopping')
 parser.add_argument('--batchPerStep', action='store', type=int, default=1, help='Number of batches per step (to emulate all-reduce)')
 parser.add_argument('--shuffle', action='store', type=bool, default=True, help='Shuffle batches for each epochs')
 parser.add_argument('--optimizer', action='store', choices=('sgd', 'adam', 'radam', 'ranger'), default='adam', help='optimizer to run')
-parser.add_argument('--model', action='store', choices=('default', 'defaultnorm1', 'defaultnorm0', 'defaultcat', 'defaultnorm1cat',
-                                                        'log3ch', 'log3chnorm1', 'log3chnorm0', 'log3chcat', 'log3chnorm1cat',
-                                                        'log5ch', 'log5chnorm1', 'log5chnorm0', 'log5chcat', 'log5chnorm1cat',
-                                                        'original',
-                                                        'circpad', 'circpadnorm1', 'circpadnorm0', 'circpadnorm1cat',
-                                                        'circpadlog3ch', 'circpadlog3chnorm1', 'circpadlog3chnorm0', 'circpadlog3chnorm1cat',
-                                                        'circpadlog5ch', 'circpadlog5chnorm1', 'circpadlog5chnorm0', 'circpadlog5chnorm1cat',),
+parser.add_argument('--model', action='store', choices=('default', 'log3ch', 'log5ch', 'original', 'circpad', 'circpadlog3ch', 'circpadlog5ch'), 
                                default='default', help='choice of model')
-parser.add_argument('--device', action='store', type=int, default=0, help='device name')
+parser.add_argument('--nreader', action='store', type=int, default=1, help='Number of loaders')
 
 args = parser.parse_args()
 
@@ -48,8 +47,7 @@ if hvd:
     hvd_size = hvd.size()
     print("Horovod is available. (rank=%d size=%d)" % (hvd_rank, hvd_size))
     #torch.manual_seed(args.seed)
-    if torch.cuda.is_available(): torch.cuda.set_device(hvd.local_rank())
-if args.device >= 0: torch.cuda.set_device(args.device)
+    #torch.cuda.set_device(hvd.local_rank())
 
 if not os.path.exists(args.outdir): os.makedirs(args.outdir)
 modelFile = os.path.join(args.outdir, 'model.pkl')
@@ -78,35 +76,27 @@ sysstat = SysStat(os.getpid(), fileName=resourceByCPFile)
 sysstat.update(annotation="start_loggin")
 
 sys.path.append("../python")
-from HEPCNN.dataset_hepcnn import HEPCNNDataset as MyDataset
+from HEPCNN.torch_dataset_splited import HEPCNNSplitDataset as MySplitDataset
+from HEPCNN.torch_dataset import HEPCNNDataset as MyDataset
 
-sysstat.update(annotation="add samples")
-myDataset = MyDataset()
-basedir = os.environ['SAMPLEDIR'] if 'SAMPLEDIR' in  os.environ else "../data/hdf5_32PU_224x224/"
-myDataset.addSample("RPV_1400", basedir+"/RPV/Gluino1400GeV/*.h5", weight=0.013/330599)
-#myDataset.addSample("QCD_HT700to1000" , basedir+"/QCD/HT700to1000/*/*.h5", weight=???)
-myDataset.addSample("QCD_HT1000to1500", basedir+"/QCDBkg/HT1000to1500/*.h5", weight=1094./15466225)
-myDataset.addSample("QCD_HT1500to2000", basedir+"/QCDBkg/HT1500to2000/*.h5", weight=99.16/3368613)
-myDataset.addSample("QCD_HT2000toInf" , basedir+"/QCDBkg/HT2000toInf/*.h5", weight=20.25/3250016)
-myDataset.setProcessLabel("RPV_1400", 1)
-myDataset.setProcessLabel("QCD_HT1000to1500", 0) ## This is not necessary because the default is 0
-myDataset.setProcessLabel("QCD_HT1500to2000", 0) ## This is not necessary because the default is 0
-myDataset.setProcessLabel("QCD_HT2000toInf", 0) ## This is not necessary because the default is 0
-sysstat.update(annotation="init dataset")
-myDataset.initialize(logger=sysstat)
+sysstat.update(annotation="open_trn")
+if os.path.isdir(args.trndata):
+    trnDataset = MySplitDataset(args.trndata, args.ntrain, nWorkers=args.nreader, syslogger=sysstat)
+else:
+    trnDataset = MyDataset(args.trndata, args.ntrain, syslogger=sysstat)
+sysstat.update(annotation="read_trn")
 
-sysstat.update(annotation="split dataset")
-lengths = [int(0.6*len(myDataset)), int(0.2*len(myDataset))]
-lengths.append(len(myDataset)-sum(lengths))
-torch.manual_seed(123456)
-trnDataset, valDataset, testDataset = torch.utils.data.random_split(myDataset, lengths)
-torch.manual_seed(torch.initial_seed())
+sysstat.update(annotation="open_val")
+if os.path.isdir(args.valdata):
+    valDataset = MySplitDataset(args.valdata, args.ntest, nWorkers=args.nreader, syslogger=sysstat)
+else:
+    valDataset = MyDataset(args.valdata, args.ntest, syslogger=sysstat)
+sysstat.update(annotation="read_val")
 
-kwargs = {'num_workers':min(4, nthreads), 'pin_memory':False}
-#kwargs = {'pin_memory':True}
-#if torch.cuda.is_available():
-#    #if hvd: kwargs['num_workers'] = 1
-#    kwargs['pin_memory'] = True
+kwargs = {'num_workers':min(4, nthreads)}
+#if torch.cuda.is_available() and hvd:
+#    kwargs['num_workers'] = 1
+kwargs['pin_memory'] = True
 
 if hvd:
     trnSampler = torch.utils.data.distributed.DistributedSampler(trnDataset, num_replicas=hvd_size, rank=hvd_rank)
@@ -116,20 +106,19 @@ if hvd:
 else:
     trnLoader = DataLoader(trnDataset, batch_size=args.batch, shuffle=args.shuffle, **kwargs)
     #valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=args.shuffle, **kwargs)
-    valLoader = DataLoader(valDataset, batch_size=args.batch, shuffle=False, **kwargs)
+    valLoader = DataLoader(valDataset, batch_size=512, shuffle=False, **kwargs)
 
 ## Build model
-sysstat.update(annotation="Model start")
 if args.model == 'original':
     from HEPCNN.torch_model_original import MyModel
 elif 'circpad' in args.model:
     from HEPCNN.torch_model_circpad import MyModel
 else:
     from HEPCNN.torch_model_default import MyModel
-model = MyModel(myDataset.width, myDataset.height, model=args.model)
+model = MyModel(trnDataset.width, trnDataset.height, model=args.model)
 if hvd_rank == 0: torch.save(model, modelFile)
 device = 'cpu'
-if args.device >= 0 and torch.cuda.is_available():
+if torch.cuda.is_available():
     model = model.cuda()
     device = 'cuda'
 
@@ -173,7 +162,7 @@ with open(args.outdir+'/summary.txt', 'w') as fout:
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
-bestModel, bestLoss = {}, -1
+bestModel, bestAcc = {}, -1
 try:
     timeHistory = TimeHistory()
     timeHistory.on_train_begin()
@@ -187,11 +176,10 @@ try:
         model.train()
         trn_loss, trn_acc = 0., 0.
         optm.zero_grad()
-        for i, (data, label, weight, rescale, procIdx) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
+        for i, (data, label, weight) in enumerate(tqdm(trnLoader, desc='epoch %d/%d' % (epoch+1, args.epoch))):
             data = data.float().to(device)
             label = label.float().to(device)
-            rescale = rescale.float().to(device)
-            weight = weight.float().to(device)*rescale
+            weight = weight.float().to(device)
 
             pred = model(data)
             crit = torch.nn.BCEWithLogitsLoss(weight=weight)
@@ -203,7 +191,7 @@ try:
                 optm.zero_grad()
 
             trn_loss += l.item()
-            trn_acc += accuracy_score(label.to('cpu'), np.where(pred.to('cpu') > 0.5, 1, 0), sample_weight=weight.to('cpu'))
+            trn_acc += accuracy_score(label.to('cpu'), np.where(pred.to('cpu') > 0.5, 1, 0))
 
             sysstat.update()
         trn_loss /= len(trnLoader)
@@ -211,25 +199,24 @@ try:
 
         model.eval()
         val_loss, val_acc = 0., 0.
-        for i, (data, label, weight, rescale, procIdx) in enumerate(tqdm(valLoader)):
+        for i, (data, label, weight) in enumerate(tqdm(valLoader)):
             data = data.float().to(device)
             label = label.float().to(device)
-            rescale = rescale.float().to(device)
-            weight = weight.float().to(device)*rescale
+            weight = weight.float().to(device)
 
             pred = model(data)
             crit = torch.nn.BCEWithLogitsLoss(weight=weight)
             loss = crit(pred.view(-1), label)
 
             val_loss += loss.item()
-            val_acc += accuracy_score(label.to('cpu'), np.where(pred.to('cpu') > 0.5, 1, 0), sample_weight=weight.to('cpu'))
+            val_acc += accuracy_score(label.to('cpu'), np.where(pred.to('cpu') > 0.5, 1, 0))
         val_loss /= len(valLoader)
         val_acc  /= len(valLoader)
 
         if hvd: val_acc = metric_average(val_acc, 'avg_accuracy')
-        if bestLoss < val_loss:
+        if bestAcc < val_acc:
             bestModel = model.state_dict()
-            bestLoss = val_loss
+            bestAcc = val_acc
             if hvd_rank == 0:
                 torch.save(bestModel, weightFile)
                 sysstat.update(annotation="saved_model")
@@ -255,3 +242,4 @@ try:
 
 except KeyboardInterrupt:
     print("Training finished early")
+
